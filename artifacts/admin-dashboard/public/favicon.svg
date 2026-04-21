@@ -1,3 +1,9 @@
 <svg width="180" height="180" viewBox="0 0 180 180" fill="none" xmlns="http://www.w3.org/2000/svg">
-<rect width="180" height="180" rx="36" fill="#FF3C00"/>
+  <rect width="180" height="180" rx="36" fill="#076B3C"/>
+  <rect x="48" y="52" width="16" height="76" rx="4" fill="white"/>
+  <rect x="48" y="52" width="58" height="16" rx="4" fill="white"/>
+  <rect x="48" y="82" width="50" height="16" rx="4" fill="white"/>
+  <rect x="48" y="112" width="58" height="16" rx="4" fill="white"/>
+  <polygon points="108,100 132,60 156,100" fill="#F5D100"/>
+  <rect x="126" y="100" width="12" height="28" rx="2" fill="#F5D100"/>
 </svg>
