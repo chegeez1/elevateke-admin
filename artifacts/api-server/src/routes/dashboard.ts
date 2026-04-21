@@ -36,16 +36,19 @@ router.get("/dashboard/summary", authenticate, async (req, res): Promise<void> =
   let nextEarningAt: string | null = null;
   let canClaimEarnings = false;
   let dailyEarningsTotal = 0;
+  let claimableEarningsTotal = 0;
 
   if (activeDeposits.length > 0) {
+    // Total daily rate across all active deposits (for display/info only)
     dailyEarningsTotal = activeDeposits.reduce((sum, d) => sum + Number(d.dailyEarning), 0);
 
-    // A deposit is claimable if lastEarningAt is null or was BEFORE today midnight
-    const hasClaimable = activeDeposits.some(d => !d.lastEarningAt || d.lastEarningAt < today);
-    canClaimEarnings = hasClaimable;
+    // Eligible = lastEarningAt is null (never claimed) OR was before today midnight
+    // This mirrors the exact condition in POST /api/earnings/claim
+    const eligibleDeposits = activeDeposits.filter(d => !d.lastEarningAt || d.lastEarningAt < today);
+    canClaimEarnings = eligibleDeposits.length > 0;
+    claimableEarningsTotal = eligibleDeposits.reduce((sum, d) => sum + Number(d.dailyEarning), 0);
 
-    // nextEarningAt = midnight tomorrow (when the next calendar day starts)
-    // If any deposit is still claimable right now, set nextEarningAt to now (or null)
+    // nextEarningAt = midnight tomorrow when no deposits are eligible right now
     nextEarningAt = canClaimEarnings ? null : tomorrow.toISOString();
   }
 
@@ -58,6 +61,7 @@ router.get("/dashboard/summary", authenticate, async (req, res): Promise<void> =
     nextEarningAt,
     canClaimEarnings,
     dailyEarningsTotal,
+    claimableEarningsTotal,
     todayEarned: Number(todayEarnings[0]?.total ?? 0),
     vipLevel: user.vipLevel,
     unreadMessages: Number(unreadMessages[0]?.count ?? 0),

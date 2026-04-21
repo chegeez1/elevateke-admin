@@ -38,7 +38,7 @@ function MidnightCountdown({ nextEarningAt }: { nextEarningAt: string }) {
   return { label, pct };
 }
 
-function CountdownCard({ nextEarningAt, dailyEarningsTotal }: { nextEarningAt: string; dailyEarningsTotal: number }) {
+function CountdownCard({ nextEarningAt, dailyRate }: { nextEarningAt: string; dailyRate: number }) {
   const { label, pct } = MidnightCountdown({ nextEarningAt });
 
   return (
@@ -46,10 +46,10 @@ function CountdownCard({ nextEarningAt, dailyEarningsTotal }: { nextEarningAt: s
       <CardContent className="p-6">
         <div className="flex items-center gap-2 mb-3">
           <CheckCircle2 size={18} className="text-amber-600" />
-          <p className="font-semibold text-amber-800">Already Claimed Today</p>
+          <p className="font-semibold text-amber-800">Next Claim Available Tomorrow</p>
         </div>
         <p className="text-sm text-amber-700 mb-4">
-          Your KSH {formatNumber(dailyEarningsTotal)} daily return has been added to your balance. Come back tomorrow!
+          Today's earnings have been settled. Your next KSH {formatNumber(dailyRate)}/day return will be claimable at midnight.
         </p>
         <div className="space-y-2">
           <div className="flex justify-between text-xs text-amber-700">
@@ -77,7 +77,8 @@ export default function Earnings() {
   const [reinvestAmount, setReinvestAmount] = useState("");
 
   const canClaim = summary?.canClaimEarnings === true;
-  const dailyTotal = summary?.dailyEarningsTotal ?? 0;
+  const claimableAmount = summary?.claimableEarningsTotal ?? 0;
+  const dailyRate = summary?.dailyEarningsTotal ?? 0;
   const nextEarningAt: string | null = summary?.nextEarningAt ?? null;
   const hasActiveDeposit = (summary?.activeDeposits ?? 0) > 0;
 
@@ -158,7 +159,7 @@ export default function Earnings() {
           <Card className="text-center p-4">
             <History size={20} className="text-purple-600 mx-auto mb-1" />
             <div className="text-xs text-gray-500 mb-1">Daily Rate</div>
-            <div className="font-bold text-lg text-purple-600">KSH {formatNumber(dailyTotal)}/day</div>
+            <div className="font-bold text-lg text-purple-600">KSH {formatNumber(dailyRate)}/day</div>
           </Card>
         </div>
 
@@ -185,7 +186,7 @@ export default function Earnings() {
                 <p className="text-sm text-green-700 mb-2">Your investment has generated today's return.</p>
                 <div className="bg-white/60 rounded-lg p-3 mb-4 text-center">
                   <div className="text-xs text-gray-500 mb-1">Ready to Claim</div>
-                  <div className="text-3xl font-bold text-green-700">KSH {formatNumber(dailyTotal)}</div>
+                  <div className="text-3xl font-bold text-green-700">KSH {formatNumber(claimableAmount)}</div>
                 </div>
                 <Button
                   className="w-full bg-green-600 hover:bg-green-700 text-white"
@@ -193,12 +194,12 @@ export default function Earnings() {
                   onClick={handleClaim}
                   disabled={claimMut.isPending}
                 >
-                  {claimMut.isPending ? "Claiming..." : `Claim KSH ${formatNumber(dailyTotal)}`}
+                  {claimMut.isPending ? "Claiming..." : `Claim KSH ${formatNumber(claimableAmount)}`}
                 </Button>
               </CardContent>
             </Card>
           ) : nextEarningAt ? (
-            <CountdownCard nextEarningAt={nextEarningAt} dailyEarningsTotal={dailyTotal} />
+            <CountdownCard nextEarningAt={nextEarningAt} dailyRate={dailyRate} />
           ) : null}
 
           {/* Reinvest Card */}

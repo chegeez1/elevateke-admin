@@ -205,6 +205,7 @@ export const GetDashboardSummaryResponse = zod.object({
   loginBonusAvailable: zod.boolean(),
   canClaimEarnings: zod.boolean(),
   dailyEarningsTotal: zod.number(),
+  claimableEarningsTotal: zod.number(),
   activeTrade: zod
     .object({
       id: zod.number(),

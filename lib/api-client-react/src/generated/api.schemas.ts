@@ -143,6 +143,7 @@ export interface DashboardSummary {
   loginBonusAvailable: boolean;
   canClaimEarnings: boolean;
   dailyEarningsTotal: number;
+  claimableEarningsTotal: number;
   activeTrade?: Trade;
 }
 
