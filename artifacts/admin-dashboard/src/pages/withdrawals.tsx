@@ -36,7 +36,8 @@ export default function Withdrawals() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin-withdrawals"] });
       queryClient.invalidateQueries({ queryKey: ["admin-stats"] });
-      toast({ title: "Withdrawal approved" });
+      setFilter("all");
+      toast({ title: "Withdrawal approved", description: "Switched to All Statuses so you can see the result." });
     },
     onError: (err: any) => {
       toast({ title: "Error", description: err.message, variant: "destructive" });
@@ -55,7 +56,8 @@ export default function Withdrawals() {
       queryClient.invalidateQueries({ queryKey: ["admin-stats"] });
       setRejectingItem(null);
       setRejectReason("");
-      toast({ title: "Withdrawal rejected" });
+      setFilter("all");
+      toast({ title: "Withdrawal rejected", description: "Switched to All Statuses so you can see the result." });
     },
     onError: (err: any) => {
       toast({ title: "Error", description: err.message, variant: "destructive" });
