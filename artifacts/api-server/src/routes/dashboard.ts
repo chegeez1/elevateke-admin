@@ -30,15 +30,23 @@ router.get("/dashboard/summary", authenticate, async (req, res): Promise<void> =
 
   const loginBonusAvailable = !user.loginBonusClaimedAt || user.loginBonusClaimedAt < today;
 
+  // Midnight-based: claimable once per calendar day (same logic as the claim route)
+  const tomorrow = new Date(today.getTime() + 24 * 60 * 60 * 1000);
+
   let nextEarningAt: string | null = null;
+  let canClaimEarnings = false;
+  let dailyEarningsTotal = 0;
+
   if (activeDeposits.length > 0) {
-    const lastEarning = activeDeposits[0].lastEarningAt;
-    if (lastEarning) {
-      const next = new Date(lastEarning.getTime() + 24 * 60 * 60 * 1000);
-      nextEarningAt = next.toISOString();
-    } else {
-      nextEarningAt = new Date(activeDeposits[0].startsAt?.getTime()! + 24 * 60 * 60 * 1000).toISOString();
-    }
+    dailyEarningsTotal = activeDeposits.reduce((sum, d) => sum + Number(d.dailyEarning), 0);
+
+    // A deposit is claimable if lastEarningAt is null or was BEFORE today midnight
+    const hasClaimable = activeDeposits.some(d => !d.lastEarningAt || d.lastEarningAt < today);
+    canClaimEarnings = hasClaimable;
+
+    // nextEarningAt = midnight tomorrow (when the next calendar day starts)
+    // If any deposit is still claimable right now, set nextEarningAt to now (or null)
+    nextEarningAt = canClaimEarnings ? null : tomorrow.toISOString();
   }
 
   res.json({
@@ -48,6 +56,8 @@ router.get("/dashboard/summary", authenticate, async (req, res): Promise<void> =
     pendingWithdrawals: Number(pendingWithdrawals[0]?.total ?? 0),
     activeDeposits: activeDeposits.length,
     nextEarningAt,
+    canClaimEarnings,
+    dailyEarningsTotal,
     todayEarned: Number(todayEarnings[0]?.total ?? 0),
     vipLevel: user.vipLevel,
     unreadMessages: Number(unreadMessages[0]?.count ?? 0),
