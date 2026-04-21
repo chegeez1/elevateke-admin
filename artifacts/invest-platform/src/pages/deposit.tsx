@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Layout } from "@/components/layout";
-import { useGetPlans, useCreateDeposit, useVerifyDeposit, useGetDeposits } from "@workspace/api-client-react";
+import { useGetPlans, useCreateDeposit, useVerifyDeposit, useGetDeposits, customFetch } from "@workspace/api-client-react";
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,10 +8,45 @@ import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { formatNumber } from "@/lib/utils";
 import { toast } from "sonner";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQueryClient, useMutation } from "@tanstack/react-query";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { ExternalLink } from "lucide-react";
+import { ExternalLink, AlertTriangle, Clock, RefreshCw, XCircle } from "lucide-react";
+
+function ExpiryCountdown({ expiresAt }: { expiresAt: string }) {
+  const [remaining, setRemaining] = useState("");
+
+  useEffect(() => {
+    const update = () => {
+      const ms = new Date(expiresAt).getTime() - Date.now();
+      if (ms <= 0) { setRemaining("Expired"); return; }
+      const mins = Math.floor(ms / 60000);
+      const secs = Math.floor((ms % 60000) / 1000);
+      setRemaining(`${mins}m ${secs.toString().padStart(2, "0")}s`);
+    };
+    update();
+    const interval = setInterval(update, 1000);
+    return () => clearInterval(interval);
+  }, [expiresAt]);
+
+  const isUrgent = new Date(expiresAt).getTime() - Date.now() < 5 * 60 * 1000;
+  return (
+    <span className={`text-xs font-medium ${isUrgent ? "text-red-500" : "text-amber-600"}`}>
+      <Clock size={12} className="inline mr-1" />Expires in {remaining}
+    </span>
+  );
+}
+
+const statusBadge = (status: string) => {
+  switch (status) {
+    case "active": return <Badge className="bg-green-100 text-green-700 border-green-200">Active</Badge>;
+    case "pending": return <Badge className="bg-amber-100 text-amber-700 border-amber-200">Pending</Badge>;
+    case "expired": return <Badge className="bg-red-100 text-red-700 border-red-200">Expired</Badge>;
+    case "cancelled": return <Badge className="bg-gray-100 text-gray-600 border-gray-200">Cancelled</Badge>;
+    case "completed": return <Badge className="bg-blue-100 text-blue-700 border-blue-200">Completed</Badge>;
+    default: return <Badge variant="outline">{status}</Badge>;
+  }
+};
 
 export default function Deposit() {
   const { data: plans, isLoading: loadingPlans } = useGetPlans();
@@ -22,39 +57,75 @@ export default function Deposit() {
   const [paymentStep, setPaymentStep] = useState<"form" | "paystack">("form");
   const [currentReference, setCurrentReference] = useState("");
   const [currentAuthUrl, setCurrentAuthUrl] = useState("");
+  const [verifyAttempts, setVerifyAttempts] = useState(0);
+  const [verifyError, setVerifyError] = useState<string | null>(null);
+  const [isExpired, setIsExpired] = useState(false);
+  const [depositExpiresAt, setDepositExpiresAt] = useState<string | null>(null);
 
   const createDepositMut = useCreateDeposit();
   const verifyDepositMut = useVerifyDeposit();
   const queryClient = useQueryClient();
 
+  const cancelDepositMut = useMutation({
+    mutationFn: (depositId: number) =>
+      customFetch(`/api/deposits/${depositId}`, { method: "DELETE" }),
+    onSuccess: () => {
+      toast.success("Deposit cancelled");
+      queryClient.invalidateQueries({ queryKey: ["/api/deposits"] });
+    },
+    onError: () => toast.error("Failed to cancel deposit"),
+  });
+
+  const resetDialog = () => {
+    setSelectedPlan(null);
+    setPaymentStep("form");
+    setCurrentReference("");
+    setCurrentAuthUrl("");
+    setVerifyAttempts(0);
+    setVerifyError(null);
+    setIsExpired(false);
+    setDepositExpiresAt(null);
+  };
+
   const handleInitiateDeposit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedPlan) return;
-    
+
     createDepositMut.mutate({ data: { planId: selectedPlan, amount: Number(amount), phone } }, {
       onSuccess: (res) => {
         setCurrentReference(res.reference);
         setCurrentAuthUrl(res.paystackAuthUrl);
+        setDepositExpiresAt(res.deposit?.expiresAt ?? null);
+        setVerifyAttempts(0);
+        setVerifyError(null);
+        setIsExpired(false);
         setPaymentStep("paystack");
       },
       onError: (err) => {
-        toast.error("Failed to initiate deposit", { description: err.data?.error || "Unknown error" });
+        toast.error("Failed to initiate deposit", { description: (err as any).data?.error || "Unknown error" });
       }
     });
   };
 
   const handleVerify = () => {
+    setVerifyError(null);
     verifyDepositMut.mutate({ data: { reference: currentReference } }, {
       onSuccess: () => {
-        toast.success("Deposit successful!");
-        setSelectedPlan(null);
-        setPaymentStep("form");
-        setAmount("");
+        toast.success("Deposit verified! Your plan is now active.");
         queryClient.invalidateQueries({ queryKey: ["/api/deposits"] });
         queryClient.invalidateQueries({ queryKey: ["/api/dashboard/summary"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/activity"] });
+        resetDialog();
       },
-      onError: (err) => {
-        toast.error("Verification failed", { description: err.data?.error || "Payment might not be complete yet." });
+      onError: (err: any) => {
+        const errData = err.data ?? {};
+        setVerifyAttempts(a => a + 1);
+        if (errData.expired) {
+          setIsExpired(true);
+          setVerifyError("This payment request has expired (30 minute limit). Please start a new deposit.");
+        } else {
+          setVerifyError(errData.error || "Payment not yet received. Please try again.");
+        }
       }
     });
   };
@@ -113,6 +184,7 @@ export default function Deposit() {
                       <Button className="w-full" onClick={() => {
                         setSelectedPlan(plan.id);
                         setAmount(plan.minAmount.toString());
+                        setPaymentStep("form");
                       }}>
                         Invest Now
                       </Button>
@@ -133,17 +205,36 @@ export default function Deposit() {
                   <div className="text-center p-4">Loading...</div>
                 ) : deposits && deposits.length > 0 ? (
                   <div className="space-y-4">
-                    {deposits.map(dep => (
+                    {deposits.map((dep: any) => (
                       <div key={dep.id} className="flex justify-between items-center p-4 border rounded-lg bg-gray-50">
-                        <div>
+                        <div className="space-y-1">
                           <div className="font-bold">{dep.planName}</div>
                           <div className="text-sm text-gray-500">{new Date(dep.createdAt).toLocaleDateString()}</div>
+                          {dep.status === "pending" && dep.expiresAt && (
+                            <ExpiryCountdown expiresAt={dep.expiresAt} />
+                          )}
+                          {dep.status === "expired" && (
+                            <span className="text-xs text-red-500 flex items-center gap-1">
+                              <XCircle size={12} /> Payment timed out — start a new deposit
+                            </span>
+                          )}
                         </div>
-                        <div className="text-right">
+                        <div className="text-right space-y-2">
                           <div className="font-bold">KSH {formatNumber(dep.amount)}</div>
-                          <Badge variant={dep.status === 'active' ? 'default' : dep.status === 'completed' ? 'secondary' : 'outline'}>
-                            {dep.status}
-                          </Badge>
+                          {statusBadge(dep.status)}
+                          {dep.status === "pending" && (
+                            <div>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="text-red-500 hover:text-red-700 hover:bg-red-50 text-xs h-7 px-2"
+                                disabled={cancelDepositMut.isPending}
+                                onClick={() => cancelDepositMut.mutate(dep.id)}
+                              >
+                                Cancel
+                              </Button>
+                            </div>
+                          )}
                         </div>
                       </div>
                     ))}
@@ -156,15 +247,17 @@ export default function Deposit() {
           </TabsContent>
         </Tabs>
 
-        <Dialog open={!!selectedPlan} onOpenChange={(open) => !open && setSelectedPlan(null)}>
+        <Dialog open={!!selectedPlan} onOpenChange={(open) => !open && resetDialog()}>
           <DialogContent>
             <DialogHeader>
               <DialogTitle>Deposit via M-Pesa</DialogTitle>
               <DialogDescription>
-                Enter amount and M-Pesa phone number to proceed.
+                {paymentStep === "form"
+                  ? "Enter amount and M-Pesa phone number to proceed."
+                  : "Complete payment on your phone, then click verify below."}
               </DialogDescription>
             </DialogHeader>
-            
+
             {paymentStep === "form" ? (
               <form onSubmit={handleInitiateDeposit} className="space-y-4">
                 <div className="space-y-2">
@@ -176,31 +269,74 @@ export default function Deposit() {
                   <Input id="phone" type="tel" value={phone} onChange={e => setPhone(e.target.value)} required placeholder="e.g. 0712345678" />
                 </div>
                 <DialogFooter>
-                  <Button type="button" variant="outline" onClick={() => setSelectedPlan(null)}>Cancel</Button>
+                  <Button type="button" variant="outline" onClick={resetDialog}>Cancel</Button>
                   <Button type="submit" disabled={createDepositMut.isPending}>
                     {createDepositMut.isPending ? "Processing..." : "Proceed to Payment"}
                   </Button>
                 </DialogFooter>
               </form>
             ) : (
-              <div className="space-y-6 text-center py-4">
-                <p className="text-gray-600">Click the button below to complete payment via Paystack.</p>
-                <Button className="w-full" size="lg" asChild>
-                  <a href={currentAuthUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2">
-                    Pay KSH {formatNumber(Number(amount))} <ExternalLink size={16} />
-                  </a>
-                </Button>
-                <div className="pt-4 border-t">
-                  <p className="text-sm text-gray-500 mb-4">After payment is successful, click verify below.</p>
-                  <Button variant="secondary" className="w-full" onClick={handleVerify} disabled={verifyDepositMut.isPending}>
-                    {verifyDepositMut.isPending ? "Verifying..." : "I've completed payment"}
+              <div className="space-y-4 py-2">
+                {depositExpiresAt && !isExpired && (
+                  <div className="flex items-center gap-2 text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                    <Clock size={14} />
+                    <span>Payment window: <ExpiryCountdown expiresAt={depositExpiresAt} /></span>
+                  </div>
+                )}
+
+                {verifyError && (
+                  <div className={`flex items-start gap-2 text-sm rounded-lg px-3 py-2 border ${isExpired ? "bg-red-50 border-red-200 text-red-700" : "bg-orange-50 border-orange-200 text-orange-700"}`}>
+                    <AlertTriangle size={16} className="mt-0.5 shrink-0" />
+                    <span>{verifyError}</span>
+                  </div>
+                )}
+
+                {!isExpired && (
+                  <>
+                    <div className="text-center">
+                      <Button className="w-full" size="lg" asChild>
+                        <a href={currentAuthUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2">
+                          Pay KSH {formatNumber(Number(amount))} on M-Pesa <ExternalLink size={16} />
+                        </a>
+                      </Button>
+                    </div>
+                    <div className="pt-2 border-t">
+                      <p className="text-sm text-gray-500 mb-3 text-center">
+                        After approving the M-Pesa prompt on your phone, click below.
+                      </p>
+                      <Button
+                        variant="secondary"
+                        className="w-full"
+                        onClick={handleVerify}
+                        disabled={verifyDepositMut.isPending}
+                      >
+                        {verifyDepositMut.isPending ? (
+                          <><RefreshCw size={14} className="mr-2 animate-spin" /> Verifying...</>
+                        ) : verifyAttempts > 0 ? (
+                          <><RefreshCw size={14} className="mr-2" /> Try Again</>
+                        ) : (
+                          "I've Completed Payment"
+                        )}
+                      </Button>
+                    </div>
+                  </>
+                )}
+
+                <div className="pt-2 border-t text-center">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="text-gray-500 hover:text-gray-700 text-xs"
+                    onClick={resetDialog}
+                  >
+                    {isExpired ? "Start New Deposit" : "Cancel & Start Over"}
                   </Button>
                 </div>
               </div>
             )}
           </DialogContent>
         </Dialog>
-
       </div>
     </Layout>
   );

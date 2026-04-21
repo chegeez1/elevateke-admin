@@ -5,12 +5,22 @@ import {
   depositPlansTable,
   usersTable,
 } from "@workspace/db";
-import { eq, and, desc } from "drizzle-orm";
+import { eq, and, desc, lt } from "drizzle-orm";
 import { authenticate } from "../middlewares/auth";
 import type { JwtPayload } from "../middlewares/auth";
 import { CreateDepositBody, VerifyDepositBody } from "@workspace/api-zod";
 
 const router: IRouter = Router();
+
+const EXPIRE_AFTER_MS = 30 * 60 * 1000; // 30 minutes
+
+async function expireStalePendingDeposits(userId?: number) {
+  const cutoff = new Date(Date.now() - EXPIRE_AFTER_MS);
+  const where = userId !== undefined
+    ? and(eq(depositsTable.status, "pending"), lt(depositsTable.createdAt, cutoff), eq(depositsTable.userId, userId))
+    : and(eq(depositsTable.status, "pending"), lt(depositsTable.createdAt, cutoff));
+  await db.update(depositsTable).set({ status: "expired" }).where(where);
+}
 
 function formatDeposit(d: typeof depositsTable.$inferSelect, planName: string) {
   return {
@@ -27,11 +37,15 @@ function formatDeposit(d: typeof depositsTable.$inferSelect, planName: string) {
     endsAt: d.endsAt?.toISOString() ?? null,
     lastEarningAt: d.lastEarningAt?.toISOString() ?? null,
     createdAt: d.createdAt.toISOString(),
+    expiresAt: d.status === "pending"
+      ? new Date(d.createdAt.getTime() + EXPIRE_AFTER_MS).toISOString()
+      : null,
   };
 }
 
 router.get("/deposits", authenticate, async (req, res): Promise<void> => {
   const { userId } = (req as typeof req & { user: JwtPayload }).user;
+  await expireStalePendingDeposits(userId);
   const deposits = await db
     .select({
       deposit: depositsTable,
@@ -156,6 +170,8 @@ router.post(
     }
 
     const { reference } = parsed.data;
+    await expireStalePendingDeposits(userId);
+
     const [deposit] = await db
       .select()
       .from(depositsTable)
@@ -176,6 +192,17 @@ router.post(
         .from(depositPlansTable)
         .where(eq(depositPlansTable.id, deposit.planId));
       res.json(formatDeposit(deposit, plan?.name ?? "Unknown"));
+      return;
+    }
+    if (deposit.status === "expired") {
+      res.status(410).json({
+        error: "This payment request has expired (30 minutes limit). Please start a new deposit.",
+        expired: true,
+      });
+      return;
+    }
+    if (deposit.status === "cancelled") {
+      res.status(400).json({ error: "This deposit was cancelled. Please start a new deposit." });
       return;
     }
 
@@ -202,7 +229,10 @@ router.post(
     }
 
     if (!verified) {
-      res.status(400).json({ error: "Payment not yet received. Please complete the M-Pesa prompt on your phone and try again." });
+      res.status(400).json({
+        error: "Payment not yet received. Please complete the M-Pesa prompt on your phone and try again in a few seconds.",
+        retryable: true,
+      });
       return;
     }
 
@@ -252,5 +282,26 @@ router.post(
     res.json(formatDeposit(updated, plan?.name ?? "Unknown"));
   },
 );
+
+router.delete("/deposits/:id", authenticate, async (req, res): Promise<void> => {
+  const { userId } = (req as typeof req & { user: JwtPayload }).user;
+  const depositId = parseInt(req.params.id, 10);
+  if (isNaN(depositId)) { res.status(400).json({ error: "Invalid deposit ID" }); return; }
+
+  const [deposit] = await db.select().from(depositsTable)
+    .where(and(eq(depositsTable.id, depositId), eq(depositsTable.userId, userId)));
+
+  if (!deposit) { res.status(404).json({ error: "Deposit not found" }); return; }
+  if (deposit.status !== "pending") {
+    res.status(400).json({ error: "Only pending deposits can be cancelled" });
+    return;
+  }
+
+  await db.update(depositsTable)
+    .set({ status: "cancelled" })
+    .where(eq(depositsTable.id, depositId));
+
+  res.json({ success: true, message: "Deposit cancelled" });
+});
 
 export default router;
