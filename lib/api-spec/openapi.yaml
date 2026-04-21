@@ -1466,9 +1466,9 @@ components:
       properties:
         time:
           type: string
-        value:
+        price:
           type: number
-      required: [time, value]
+      required: [time, price]
 
     PlaceTradeBody:
       type: object
@@ -1479,7 +1479,10 @@ components:
           type: integer
         durationMins:
           type: integer
-      required: [amount, multiplier, durationMins]
+        direction:
+          type: string
+          enum: [up, down]
+      required: [amount, multiplier, durationMins, direction]
 
     CashoutTradeBody:
       type: object

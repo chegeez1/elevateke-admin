@@ -14,7 +14,7 @@ export default function Tasks() {
   const queryClient = useQueryClient();
 
   const handleComplete = (taskId: number) => {
-    completeTaskMut.mutate({ taskId }, {
+    completeTaskMut.mutate({ id: taskId }, {
       onSuccess: (res) => {
         toast.success("Task completed!", { description: res.message });
         queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });

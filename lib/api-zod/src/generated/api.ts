@@ -408,7 +408,7 @@ export const GetTradeSettingsResponse = zod.object({
  */
 export const GetTradeChartResponseItem = zod.object({
   time: zod.string(),
-  value: zod.number(),
+  price: zod.number(),
 });
 export const GetTradeChartResponse = zod.array(GetTradeChartResponseItem);
 

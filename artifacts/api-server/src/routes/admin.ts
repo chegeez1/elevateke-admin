@@ -62,7 +62,7 @@ router.get("/admin/users/:id", async (req, res): Promise<void> => {
   res.json({
     user: { ...formatUser(user), referredBy: user.referredBy ?? null },
     deposits: deposits.map(d => ({ id: d.id, amount: Number(d.amount), status: d.status, createdAt: d.createdAt.toISOString() })),
-    withdrawals: withdrawals.map(w => ({ id: w.id, amount: Number(w.amount), status: w.status, createdAt: w.requestedAt.toISOString() })),
+    withdrawals: withdrawals.map(w => ({ id: w.id, amount: Number(w.amount), status: w.status, requestedAt: w.requestedAt.toISOString() })),
   });
 });
 

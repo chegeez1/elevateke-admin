@@ -10,10 +10,10 @@ const router: IRouter = Router();
 function formatWithdrawal(w: typeof withdrawalsTable.$inferSelect) {
   return {
     id: w.id, userId: w.userId, amount: Number(w.amount),
-    mpesaPhone: w.mpesaPhone, status: w.status,
+    phone: w.phone, status: w.status,
     adminNote: w.adminNote ?? null,
     processedAt: w.processedAt?.toISOString() ?? null,
-    createdAt: w.requestedAt.toISOString(),
+    requestedAt: w.requestedAt.toISOString(),
   };
 }
 
@@ -29,7 +29,7 @@ router.post("/withdrawals", authenticate, async (req, res): Promise<void> => {
   const parsed = CreateWithdrawalBody.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
 
-  const { amount, mpesaPhone } = parsed.data;
+  const { amount, phone } = parsed.data;
   const MIN_WITHDRAWAL = 100;
 
   const [user] = await db.select().from(usersTable).where(eq(usersTable.id, userId));
@@ -45,7 +45,7 @@ router.post("/withdrawals", authenticate, async (req, res): Promise<void> => {
   await db.update(usersTable).set({ balance: newBalance.toString() }).where(eq(usersTable.id, userId));
 
   const [withdrawal] = await db.insert(withdrawalsTable).values({
-    userId, amount: amount.toString(), mpesaPhone, status: "pending",
+    userId, amount: amount.toString(), phone, status: "pending",
   }).returning();
 
   res.status(201).json(formatWithdrawal(withdrawal));

@@ -267,13 +267,22 @@ export interface TradeSettings {
 
 export interface ChartPoint {
   time: string;
-  value: number;
+  price: number;
 }
+
+export type PlaceTradeBodyDirection =
+  (typeof PlaceTradeBodyDirection)[keyof typeof PlaceTradeBodyDirection];
+
+export const PlaceTradeBodyDirection = {
+  up: "up",
+  down: "down",
+} as const;
 
 export interface PlaceTradeBody {
   amount: number;
   multiplier: number;
   durationMins: number;
+  direction: PlaceTradeBodyDirection;
 }
 
 export interface CashoutTradeBody {

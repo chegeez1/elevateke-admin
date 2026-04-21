@@ -54,7 +54,7 @@ function generateChartData() {
     const change = (Math.random() - 0.5) * 20;
     price = Math.max(800, price + change + (tradeSettings.direction === "up" ? 2 : -2));
     points.push({
-      timestamp: new Date(now - i * 60000).toISOString(),
+      time: new Date(now - i * 60000).toISOString(),
       price: Math.round(price * 100) / 100,
       open: Math.round((price - Math.abs(change)) * 100) / 100,
       close: Math.round(price * 100) / 100,
@@ -144,7 +144,11 @@ router.post("/trade/cashout", authenticate, async (req, res): Promise<void> => {
     result, profitLoss: profitLoss.toString(), status: "closed", endedAt: new Date(),
   }).where(eq(tradesTable.id, tradeId)).returning();
 
-  res.json({ trade: formatTrade(updated), profitLoss, payout, result });
+  const message = result === "win"
+    ? `You won! Profit: KSH ${profitLoss.toFixed(2)}`
+    : `Trade closed. Loss: KSH ${Math.abs(profitLoss).toFixed(2)}`;
+
+  res.json({ trade: formatTrade(updated), profitLoss, newBalance, message, result });
 });
 
 router.get("/trade/history", authenticate, async (req, res): Promise<void> => {
