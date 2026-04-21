@@ -218,7 +218,7 @@ export default function Deposit() {
     });
   };
 
-  const activePlan = deposits?.find(d => d.status === "active") ?? null;
+  const activePlans = deposits?.filter(d => d.status === "active") ?? [];
 
   return (
     <Layout>
@@ -228,7 +228,13 @@ export default function Deposit() {
           <p className="text-gray-500">Invest in a plan to earn daily returns.</p>
         </div>
 
-        {activePlan && <CurrentPlanCard deposit={activePlan} />}
+        {activePlans.length > 0 && (
+          <div className="space-y-3">
+            {activePlans.map(dep => (
+              <CurrentPlanCard key={dep.id} deposit={dep} />
+            ))}
+          </div>
+        )}
 
         <Tabs defaultValue="plans">
           <TabsList className="mb-4">
@@ -271,6 +277,18 @@ export default function Deposit() {
                           <span className="font-bold">KSH {formatNumber(plan.maxAmount)}</span>
                         </div>
                       )}
+                      {/* Earnings example at minimum investment */}
+                      <div className="bg-green-50 border border-green-100 rounded-lg p-3 space-y-1">
+                        <p className="text-xs text-green-700 font-semibold uppercase tracking-wide">Example at min. investment</p>
+                        <div className="flex justify-between text-sm">
+                          <span className="text-gray-500">Daily earn</span>
+                          <span className="font-bold text-green-700">KSH {formatNumber(Math.round(plan.minAmount * plan.dailyRate))}</span>
+                        </div>
+                        <div className="flex justify-between text-sm">
+                          <span className="text-gray-500">Total return</span>
+                          <span className="font-bold text-green-700">KSH {formatNumber(Math.round(plan.minAmount * plan.dailyRate * plan.durationDays))}</span>
+                        </div>
+                      </div>
                     </CardContent>
                     <CardFooter>
                       <Button className="w-full" onClick={() => {
