@@ -48,24 +48,35 @@ function formatTrade(t: typeof tradesTable.$inferSelect) {
 
 function generateChartData() {
   const points = [];
-  let price = 1000 + Math.random() * 100;
+  // Seed price with seconds so it's consistent within a minute but shifts over time
+  const seedBase = Math.floor(Date.now() / 60000);
+  const pseudoRand = (n: number) => {
+    const x = Math.sin(seedBase * 9301 + n * 49297) * 0.5 + 0.5;
+    return x;
+  };
+  let price = 1050 + pseudoRand(0) * 80;
   const now = Date.now();
-  // Use a slight trend bias — much smaller than the random component so the
-  // chart visibly goes both up and down like a real market.
-  const trendBias = tradeSettings.direction === "up" ? 0.4 : -0.4;
+  // Very weak bias so the direction is barely perceptible — chart looks random
+  const trendBias = tradeSettings.direction === "up" ? 0.08 : -0.08;
+
   for (let i = 59; i >= 0; i--) {
-    const volatility = 15 + Math.random() * 10;
-    const change = (Math.random() - 0.5) * volatility + trendBias;
-    price = Math.max(800, Math.min(1400, price + change));
-    const open = Math.round((price - Math.abs(change) * 0.5) * 100) / 100;
+    // Multi-layer noise: fast micro noise + slower swing noise
+    const micro = (Math.random() - 0.5) * 6;
+    const swing = (pseudoRand(i + 1) - 0.5) * 22;
+    // Occasional sudden spike/reversal (about 1 in 10 candles)
+    const spike = Math.random() < 0.1 ? (Math.random() - 0.5) * 40 : 0;
+    const change = micro + swing * 0.35 + spike + trendBias;
+    price = Math.max(900, Math.min(1200, price + change));
+    const spread = Math.random() * 5 + 2;
+    const open = Math.round((price - change * 0.4) * 100) / 100;
     const close = Math.round(price * 100) / 100;
     points.push({
       timestamp: new Date(now - i * 60000).toISOString(),
       price: close,
       open,
       close,
-      high: Math.round((price + Math.random() * 8) * 100) / 100,
-      low: Math.round((price - Math.random() * 8) * 100) / 100,
+      high: Math.round((Math.max(open, close) + spread) * 100) / 100,
+      low: Math.round((Math.min(open, close) - spread) * 100) / 100,
     });
   }
   return points;
@@ -122,7 +133,8 @@ router.post("/trade/cashout", authenticate, async (req, res): Promise<void> => {
   if (!trade) { res.status(400).json({ error: "No active trade found with that ID" }); return; }
 
   const amount = Number(trade.amount);
-  const mult = Number(trade.multiplier) || 1;
+  // Multiplier stored as "1x"/"2x"/"3x" — extract the number
+  const multRaw = parseInt(trade.multiplier, 10) || 1;
   const userDirection = trade.direction;
   const adminDirection = tradeSettings.direction;
 
@@ -130,10 +142,17 @@ router.post("/trade/cashout", authenticate, async (req, res): Promise<void> => {
   let result: "win" | "loss";
 
   if (userDirection === adminDirection) {
-    profitLoss = amount * mult * 0.8;
+    // Win: small realistic gain — 5–20% of amount, slightly higher for bigger multiplier
+    // multRaw 1→ range 0.05–0.12 | 2→ 0.08–0.18 | 3→ 0.12–0.22
+    const minRate = 0.04 + (multRaw - 1) * 0.03;
+    const maxRate = 0.12 + (multRaw - 1) * 0.05;
+    const rate = minRate + Math.random() * (maxRate - minRate);
+    profitLoss = Math.round(amount * rate);
     result = "win";
   } else {
-    profitLoss = -(amount * 0.5);
+    // Loss: small realistic loss — 5–15% of amount (feels like a stop-loss hit)
+    const lossRate = 0.05 + Math.random() * 0.10;
+    profitLoss = -Math.round(amount * lossRate);
     result = "loss";
   }
 
@@ -151,8 +170,8 @@ router.post("/trade/cashout", authenticate, async (req, res): Promise<void> => {
   }).where(eq(tradesTable.id, tradeId)).returning();
 
   const message = result === "win"
-    ? `You won! Profit: KSH ${profitLoss.toFixed(2)}`
-    : `Trade closed. Loss: KSH ${Math.abs(profitLoss).toFixed(2)}`;
+    ? `Trade closed — profit KSH ${profitLoss}`
+    : `Trade closed — loss KSH ${Math.abs(profitLoss)}`;
 
   res.json({ trade: formatTrade(updated), profitLoss, newBalance, message, result });
 });

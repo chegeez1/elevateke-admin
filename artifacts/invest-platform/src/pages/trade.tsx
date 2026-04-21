@@ -44,7 +44,10 @@ export default function Trade() {
     if (!summary?.activeTrade) return;
     cashoutMut.mutate({ data: { tradeId: summary.activeTrade.id } }, {
       onSuccess: (res) => {
-        toast.success(res.message, { description: `Profit/Loss: KSH ${res.profitLoss}` });
+        const pl = res.profitLoss ?? 0;
+        const plStr = pl >= 0 ? `+KSH ${pl}` : `-KSH ${Math.abs(pl)}`;
+        const toastFn = pl >= 0 ? toast.success : toast.error;
+        toastFn(res.message, { description: plStr });
         queryClient.invalidateQueries({ queryKey: ["/api/trade/history"] });
         queryClient.invalidateQueries({ queryKey: ["/api/dashboard/summary"] });
       },
@@ -137,7 +140,11 @@ export default function Trade() {
                           <span className="text-amber-500 font-medium">Active</span>
                         ) : (
                           <span className={`font-bold ${trade.result === 'win' ? 'text-green-600' : 'text-red-600'}`}>
-                            {trade.result === 'win' ? '+' : ''}{trade.profitLoss ? `KSH ${formatNumber(trade.profitLoss)}` : '-'}
+                            {trade.profitLoss != null
+                              ? (trade.result === 'win'
+                                ? `+KSH ${formatNumber(trade.profitLoss)}`
+                                : `-KSH ${formatNumber(Math.abs(trade.profitLoss))}`)
+                              : '—'}
                           </span>
                         )}
                       </div>
