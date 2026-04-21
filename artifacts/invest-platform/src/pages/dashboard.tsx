@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { formatNumber } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Link } from "wouter";
-import { Wallet, TrendingUp, Gift, Zap, Star, Users, CheckCircle, ArrowDownCircle, ArrowUpCircle, Clock } from "lucide-react";
+import { Wallet, TrendingUp, Gift, Zap, Star, Users, CheckCircle, ArrowDownCircle, ArrowUpCircle, Clock, Award } from "lucide-react";
 import { toast } from "sonner";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
 
