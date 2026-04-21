@@ -37,3 +37,9 @@ externalPort = 3002
 
 [nix]
 channel = "stable-25_05"
+
+[userenv]
+
+[userenv.shared]
+ADMIN_USERNAME = "elevate_admin"
+ADMIN_PASSWORD = "ElevateKe@2026!"
