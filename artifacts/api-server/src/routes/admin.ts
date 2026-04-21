@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { db, usersTable, depositsTable, withdrawalsTable, earningsTable, depositPlansTable, tasksTable, announcementsTable, inboxMessagesTable, tradesTable } from "@workspace/db";
+import { db, usersTable, depositsTable, withdrawalsTable, earningsTable, depositPlansTable, tasksTable, announcementsTable, inboxMessagesTable, tradesTable, platformSettingsTable } from "@workspace/db";
 import { eq, desc, sql, and } from "drizzle-orm";
 import { authenticate, requireAdmin } from "../middlewares/auth";
 import { CreatePlanBody, CreateTaskBody } from "@workspace/api-zod";
@@ -320,6 +320,40 @@ router.post("/admin/users/:id/adjust-balance", async (req, res): Promise<void> =
     content: `Your balance has been adjusted by KSH ${amount >= 0 ? '+' : ''}${amount}. ${note ?? ""}`,
   });
   res.json({ success: true, newBalance, message: "Balance adjusted" });
+});
+
+// ── Platform Settings ──────────────────────────────────────────────────
+router.get("/admin/settings", async (_req, res): Promise<void> => {
+  const rows = await db.select().from(platformSettingsTable).orderBy(platformSettingsTable.key);
+  const map: Record<string, { value: string; label: string; description: string | null }> = {};
+  for (const r of rows) {
+    map[r.key] = { value: r.value, label: r.label, description: r.description ?? null };
+  }
+  res.json(map);
+});
+
+router.patch("/admin/settings", async (req, res): Promise<void> => {
+  const updates = req.body as Record<string, string>;
+  if (!updates || typeof updates !== "object") {
+    res.status(400).json({ error: "Body must be an object of { key: value }" }); return;
+  }
+  for (const [key, value] of Object.entries(updates)) {
+    if (typeof value !== "string" || isNaN(Number(value))) {
+      res.status(400).json({ error: `Invalid value for ${key}: must be a number` }); return;
+    }
+    await db.update(platformSettingsTable)
+      .set({ value, updatedAt: new Date() })
+      .where(eq(platformSettingsTable.key, key));
+  }
+  res.json({ success: true, message: "Settings updated" });
+});
+
+// Public endpoint so invest-platform can read min amounts etc.
+router.get("/settings", async (_req, res): Promise<void> => {
+  const rows = await db.select().from(platformSettingsTable);
+  const map: Record<string, string> = {};
+  for (const r of rows) map[r.key] = r.value;
+  res.json(map);
 });
 
 export default router;

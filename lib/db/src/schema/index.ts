@@ -9,3 +9,4 @@ export * from "./announcements";
 export * from "./inbox";
 export * from "./loginHistory";
 export * from "./referrals";
+export * from "./platformSettings";

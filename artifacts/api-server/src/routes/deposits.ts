@@ -5,6 +5,9 @@ import {
   depositPlansTable,
   usersTable,
   inboxMessagesTable,
+  platformSettingsTable,
+  earningsTable,
+  referralsTable,
 } from "@workspace/db";
 import { eq, and, desc, lt } from "drizzle-orm";
 import { authenticate } from "../middlewares/auth";
@@ -295,10 +298,21 @@ router.post(
       Number(deposit.amount) +
       Number(deposit.bonusAmount);
     const newBalance = Number(user?.balance ?? 0) + Number(deposit.bonusAmount);
+
+    // Read VIP thresholds from platform settings
+    const vipSettings = await db.select().from(platformSettingsTable)
+      .then(rows => {
+        const get = (key: string, def: number) => Number(rows.find(r => r.key === key)?.value ?? def);
+        return {
+          silver: get("vip_silver_min", 5000),
+          gold: get("vip_gold_min", 20000),
+          platinum: get("vip_platinum_min", 50000),
+        };
+      });
     let vipLevel = "Bronze";
-    if (newDeposited >= 50000) vipLevel = "Platinum";
-    else if (newDeposited >= 20000) vipLevel = "Gold";
-    else if (newDeposited >= 5000) vipLevel = "Silver";
+    if (newDeposited >= vipSettings.platinum) vipLevel = "Platinum";
+    else if (newDeposited >= vipSettings.gold) vipLevel = "Gold";
+    else if (newDeposited >= vipSettings.silver) vipLevel = "Silver";
 
     await db
       .update(usersTable)
@@ -308,6 +322,52 @@ router.post(
         vipLevel,
       })
       .where(eq(usersTable.id, userId));
+
+    // Pay referral bonuses to referrers (if user was referred)
+    if (user?.referredBy) {
+      const refSettings = await db.select().from(platformSettingsTable)
+        .then(rows => {
+          const get = (key: string, def: number) => Number(rows.find(r => r.key === key)?.value ?? def);
+          return { l1: get("referral_bonus_l1_percent", 0), l2: get("referral_bonus_l2_percent", 0) };
+        });
+
+      const depositAmount = Number(deposit.amount);
+
+      if (refSettings.l1 > 0) {
+        const l1Bonus = Math.floor((depositAmount * refSettings.l1) / 100);
+        if (l1Bonus > 0) {
+          const [referrer1] = await db.select().from(usersTable).where(eq(usersTable.id, user.referredBy));
+          if (referrer1) {
+            await db.update(usersTable).set({
+              balance: (Number(referrer1.balance) + l1Bonus).toString(),
+              totalEarned: (Number(referrer1.totalEarned) + l1Bonus).toString(),
+            }).where(eq(usersTable.id, referrer1.id));
+            await db.insert(earningsTable).values({
+              userId: referrer1.id, amount: l1Bonus.toString(), type: "referral",
+              description: `Level 1 referral bonus from ${user.name}'s deposit`,
+            });
+            await db.update(referralsTable).set({ bonusAmount: l1Bonus.toString() })
+              .where(and(eq(referralsTable.referrerId, referrer1.id), eq(referralsTable.referredId, userId)));
+          }
+          if (refSettings.l2 > 0 && referrer1?.referredBy) {
+            const l2Bonus = Math.floor((depositAmount * refSettings.l2) / 100);
+            if (l2Bonus > 0) {
+              const [referrer2] = await db.select().from(usersTable).where(eq(usersTable.id, referrer1.referredBy));
+              if (referrer2) {
+                await db.update(usersTable).set({
+                  balance: (Number(referrer2.balance) + l2Bonus).toString(),
+                  totalEarned: (Number(referrer2.totalEarned) + l2Bonus).toString(),
+                }).where(eq(usersTable.id, referrer2.id));
+                await db.insert(earningsTable).values({
+                  userId: referrer2.id, amount: l2Bonus.toString(), type: "referral",
+                  description: `Level 2 referral bonus from ${user.name}'s deposit`,
+                });
+              }
+            }
+          }
+        }
+      }
+    }
 
     const planName = plan?.name ?? "Unknown";
     const depositAmount = Number(deposit.amount).toLocaleString("en-KE");
@@ -336,7 +396,7 @@ router.post(
 
 router.delete("/deposits/:id", authenticate, async (req, res): Promise<void> => {
   const { userId } = (req as typeof req & { user: JwtPayload }).user;
-  const depositId = parseInt(req.params.id, 10);
+  const depositId = parseInt(req.params.id as string, 10);
   if (isNaN(depositId)) { res.status(400).json({ error: "Invalid deposit ID" }); return; }
 
   const [deposit] = await db.select().from(depositsTable)

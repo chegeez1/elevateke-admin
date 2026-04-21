@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { db, withdrawalsTable, usersTable } from "@workspace/db";
+import { db, withdrawalsTable, usersTable, platformSettingsTable } from "@workspace/db";
 import { eq, and, desc } from "drizzle-orm";
 import { authenticate } from "../middlewares/auth";
 import type { JwtPayload } from "../middlewares/auth";
@@ -30,12 +30,26 @@ router.post("/withdrawals", authenticate, async (req, res): Promise<void> => {
   if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
 
   const { amount, phone } = parsed.data;
-  const MIN_WITHDRAWAL = 100;
+
+  const settings = await db.select().from(platformSettingsTable)
+    .where(eq(platformSettingsTable.key, "min_withdrawal_amount"))
+    .then(async (rows) => {
+      const minRow = rows[0];
+      const [maxRow] = await db.select().from(platformSettingsTable)
+        .where(eq(platformSettingsTable.key, "max_withdrawal_amount"));
+      return {
+        min: Number(minRow?.value ?? 100),
+        max: Number(maxRow?.value ?? 100000),
+      };
+    });
 
   const [user] = await db.select().from(usersTable).where(eq(usersTable.id, userId));
   if (!user) { res.status(404).json({ error: "User not found" }); return; }
-  if (amount < MIN_WITHDRAWAL) {
-    res.status(400).json({ error: `Minimum withdrawal is KSH ${MIN_WITHDRAWAL}` }); return;
+  if (amount < settings.min) {
+    res.status(400).json({ error: `Minimum withdrawal is KSH ${settings.min}` }); return;
+  }
+  if (amount > settings.max) {
+    res.status(400).json({ error: `Maximum withdrawal per request is KSH ${settings.max}` }); return;
   }
   if (Number(user.balance) < amount) {
     res.status(400).json({ error: "Insufficient balance" }); return;

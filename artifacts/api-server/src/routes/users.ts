@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { db, usersTable, loginHistoryTable, referralsTable, earningsTable } from "@workspace/db";
+import { db, usersTable, loginHistoryTable, referralsTable, earningsTable, platformSettingsTable } from "@workspace/db";
 import { eq, desc, and, gte, sql } from "drizzle-orm";
 import { authenticate } from "../middlewares/auth";
 import type { JwtPayload } from "../middlewares/auth";
@@ -102,7 +102,10 @@ router.post("/users/claim-login-bonus", authenticate, async (req, res): Promise<
     return;
   }
 
-  const bonusAmount = 10;
+  const [bonusSetting] = await db.select().from(platformSettingsTable)
+    .where(eq(platformSettingsTable.key, "login_bonus_amount"));
+  const bonusAmount = Number(bonusSetting?.value ?? 10);
+
   const newBalance = Number(user.balance) + bonusAmount;
   const newTotalEarned = Number(user.totalEarned) + bonusAmount;
 
@@ -115,7 +118,7 @@ router.post("/users/claim-login-bonus", authenticate, async (req, res): Promise<
   const { earningsTable: et } = await import("@workspace/db");
   await db.insert(et).values({ userId, amount: bonusAmount.toString(), type: "login_bonus", description: "Daily login bonus" });
 
-  res.json({ amount: bonusAmount, newBalance, message: "Login bonus claimed! KSH 10 added to your balance." });
+  res.json({ amount: bonusAmount, newBalance, message: `Login bonus claimed! KSH ${bonusAmount} added to your balance.` });
 });
 
 export default router;

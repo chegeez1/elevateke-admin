@@ -17,6 +17,7 @@ import Trade from "@/pages/trade";
 import Announcements from "@/pages/announcements";
 import Messages from "@/pages/messages";
 import Reports from "@/pages/reports";
+import SettingsPage from "@/pages/settings";
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient();
@@ -70,6 +71,7 @@ function Router() {
       <Route path="/announcements"><ProtectedRoute component={Announcements} /></Route>
       <Route path="/messages"><ProtectedRoute component={Messages} /></Route>
       <Route path="/reports"><ProtectedRoute component={Reports} /></Route>
+      <Route path="/settings"><ProtectedRoute component={SettingsPage} /></Route>
       <Route component={NotFound} />
     </Switch>
   );

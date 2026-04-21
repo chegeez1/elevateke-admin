@@ -5,7 +5,8 @@ import { removeAdminToken } from "../App";
 import { 
   LayoutDashboard, 
   Users, 
-  Settings, 
+  Settings,
+  SlidersHorizontal,
   ListTodo, 
   ArrowLeftRight, 
   TrendingUp, 
@@ -28,6 +29,7 @@ const NAV_ITEMS = [
   { href: "/announcements", label: "Announcements", icon: Megaphone },
   { href: "/messages", label: "Messages", icon: Mail },
   { href: "/reports", label: "Reports", icon: BarChart },
+  { href: "/settings", label: "Platform Settings", icon: SlidersHorizontal },
 ];
 
 export function Layout({ children }: { children: React.ReactNode }) {
