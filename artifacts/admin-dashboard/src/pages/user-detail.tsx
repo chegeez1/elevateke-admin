@@ -7,7 +7,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Ban, CheckCircle, Wallet, History, AlertTriangle } from "lucide-react";
+import {
+  ArrowLeft, Ban, CheckCircle, Wallet, AlertTriangle, TrendingUp, X, Clock,
+} from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -18,6 +20,26 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 
+interface UserDeposit {
+  id: number;
+  planName: string;
+  amount: number;
+  dailyEarning: number;
+  status: string;
+  paystackRef: string | null;
+  startsAt: string | null;
+  endsAt: string | null;
+  createdAt: string;
+}
+
+const DEPOSIT_BADGE: Record<string, { label: string; className: string }> = {
+  pending:   { label: "Pending",   className: "text-amber-600 bg-amber-50 border-amber-200" },
+  active:    { label: "Active",    className: "text-emerald-600 bg-emerald-50 border-emerald-200" },
+  completed: { label: "Completed", className: "text-blue-600 bg-blue-50 border-blue-200" },
+  cancelled: { label: "Cancelled", className: "text-rose-600 bg-rose-50 border-rose-200" },
+  expired:   { label: "Expired",   className: "text-gray-600 bg-gray-100 border-gray-300" },
+};
+
 export default function UserDetail() {
   const { id } = useParams<{ id: string }>();
   const { toast } = useToast();
@@ -25,6 +47,7 @@ export default function UserDetail() {
   const [balanceAmount, setBalanceAmount] = useState("");
   const [balanceNote, setBalanceNote] = useState("");
   const [isAdjustOpen, setIsAdjustOpen] = useState(false);
+  const [cancelDeposit, setCancelDeposit] = useState<UserDeposit | null>(null);
 
   const { data: detail, isLoading } = useQuery({
     queryKey: ["admin-user", id],
@@ -59,10 +82,28 @@ export default function UserDetail() {
     }
   });
 
+  const cancelDepositMut = useMutation({
+    mutationFn: (depositId: number) =>
+      customFetch(`/api/admin/deposits/${depositId}/cancel`, { method: "PATCH" }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin-user", id] });
+      queryClient.invalidateQueries({ queryKey: ["admin-deposits"] });
+      setCancelDeposit(null);
+      toast({ title: "Deposit cancelled", description: "The deposit has been cancelled and the user notified." });
+    },
+    onError: (err: any) => {
+      toast({ title: "Failed to cancel deposit", description: err.message, variant: "destructive" });
+    }
+  });
+
   if (isLoading) return <div className="p-8 text-center text-muted-foreground">Loading user details...</div>;
   if (!detail || !detail.user) return <div className="p-8 text-center text-destructive">User not found.</div>;
 
   const user = detail.user;
+  const deposits: UserDeposit[] = detail.deposits ?? [];
+
+  const pendingDeposits = deposits.filter(d => d.status === "pending");
+  const activeDeposits  = deposits.filter(d => d.status === "active");
 
   return (
     <div className="space-y-6">
@@ -85,6 +126,17 @@ export default function UserDetail() {
           </Button>
         </div>
       </div>
+
+      {/* Pending deposit alert */}
+      {pendingDeposits.length > 0 && (
+        <div className="flex items-start gap-3 bg-amber-50 border border-amber-200 text-amber-800 rounded-lg px-4 py-3 text-sm">
+          <Clock className="h-4 w-4 mt-0.5 shrink-0" />
+          <span>
+            This user has <strong>{pendingDeposits.length} pending payment{pendingDeposits.length !== 1 ? "s" : ""}</strong> awaiting M-Pesa confirmation.
+            You can cancel them below if payment was not received.
+          </span>
+        </div>
+      )}
 
       <div className="grid gap-6 md:grid-cols-2">
         <Card>
@@ -159,19 +211,88 @@ export default function UserDetail() {
           </CardContent>
         </Card>
 
+        {/* Deposits summary card */}
         <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">Recent Activity</CardTitle>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-lg">Deposits</CardTitle>
+            <TrendingUp className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
-              <div className="text-sm text-muted-foreground text-center py-8">
-                Detailed transaction history to be implemented.
+            {deposits.length === 0 ? (
+              <div className="text-sm text-muted-foreground text-center py-6">No deposits found.</div>
+            ) : (
+              <div className="space-y-3">
+                {/* Summary line */}
+                <div className="flex gap-4 text-sm text-muted-foreground border-b pb-3">
+                  <span><strong className="text-foreground">{activeDeposits.length}</strong> active</span>
+                  <span><strong className="text-foreground">{pendingDeposits.length}</strong> pending</span>
+                  <span><strong className="text-foreground">{deposits.length}</strong> total</span>
+                </div>
+
+                {deposits.map(dep => {
+                  const badge = DEPOSIT_BADGE[dep.status] ?? { label: dep.status, className: "" };
+                  return (
+                    <div key={dep.id} className="flex items-center justify-between gap-3 py-2 border-b last:border-0">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium text-sm truncate">{dep.planName}</span>
+                          <Badge variant="outline" className={`text-xs shrink-0 ${badge.className}`}>{badge.label}</Badge>
+                        </div>
+                        <div className="text-xs text-muted-foreground mt-0.5">
+                          KSH {dep.amount.toLocaleString("en-KE")} · KSH {dep.dailyEarning.toLocaleString("en-KE")}/day
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          {new Date(dep.createdAt).toLocaleDateString("en-KE")}
+                          {dep.paystackRef && dep.paystackRef.startsWith("reinvest") && (
+                            <span className="ml-1 text-blue-500">(reinvested)</span>
+                          )}
+                        </div>
+                      </div>
+                      {dep.status === "pending" && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="text-rose-500 hover:text-rose-700 hover:bg-rose-50 shrink-0 h-7 px-2 text-xs"
+                          onClick={() => setCancelDeposit(dep)}
+                        >
+                          <X className="h-3 w-3 mr-1" /> Cancel
+                        </Button>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
-            </div>
+            )}
           </CardContent>
         </Card>
       </div>
+
+      {/* Cancel deposit confirm dialog */}
+      <Dialog open={!!cancelDeposit} onOpenChange={open => !open && setCancelDeposit(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-amber-500" /> Cancel Pending Deposit
+            </DialogTitle>
+            <DialogDescription>
+              Cancel <strong>{cancelDeposit?.planName}</strong> deposit of{" "}
+              <strong>KSH {cancelDeposit?.amount?.toLocaleString("en-KE")}</strong>?
+              <br /><br />
+              The user will be notified via inbox. This cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCancelDeposit(null)}>Keep It</Button>
+            <Button
+              variant="destructive"
+              onClick={() => cancelDeposit && cancelDepositMut.mutate(cancelDeposit.id)}
+              disabled={cancelDepositMut.isPending}
+            >
+              Yes, Cancel It
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

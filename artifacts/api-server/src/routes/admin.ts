@@ -60,12 +60,29 @@ router.get("/admin/users/:id", async (req, res): Promise<void> => {
   const [user] = await db.select().from(usersTable).where(eq(usersTable.id, id));
   if (!user) { res.status(404).json({ error: "User not found" }); return; }
 
-  const deposits = await db.select().from(depositsTable).where(eq(depositsTable.userId, id));
+  const deposits = await db.select({
+    d: depositsTable,
+    planName: depositPlansTable.name,
+  }).from(depositsTable)
+    .leftJoin(depositPlansTable, eq(depositsTable.planId, depositPlansTable.id))
+    .where(eq(depositsTable.userId, id))
+    .orderBy(desc(depositsTable.createdAt));
+
   const withdrawals = await db.select().from(withdrawalsTable).where(eq(withdrawalsTable.userId, id));
 
   res.json({
     user: { ...formatUser(user), referredBy: user.referredBy ?? null },
-    deposits: deposits.map(d => ({ id: d.id, amount: Number(d.amount), status: d.status, createdAt: d.createdAt.toISOString() })),
+    deposits: deposits.map(({ d, planName }) => ({
+      id: d.id,
+      planName: planName ?? "Unknown",
+      amount: Number(d.amount),
+      dailyEarning: Number(d.dailyEarning),
+      status: d.status,
+      paystackRef: d.paystackRef ?? null,
+      startsAt: d.startsAt?.toISOString() ?? null,
+      endsAt: d.endsAt?.toISOString() ?? null,
+      createdAt: d.createdAt.toISOString(),
+    })),
     withdrawals: withdrawals.map(w => ({ id: w.id, amount: Number(w.amount), status: w.status, requestedAt: w.requestedAt.toISOString() })),
   });
 });

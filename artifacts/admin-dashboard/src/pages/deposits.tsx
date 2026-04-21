@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { Check, X, Search, TrendingUp } from "lucide-react";
+import { Check, X, Search, TrendingUp, AlertCircle, Clock } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   Dialog,
@@ -40,6 +40,7 @@ const STATUS_BADGE: Record<string, { label: string; className: string }> = {
   active:    { label: "Active",    className: "text-emerald-600 bg-emerald-50 border-emerald-200" },
   completed: { label: "Completed", className: "text-blue-600 bg-blue-50 border-blue-200" },
   cancelled: { label: "Cancelled", className: "text-rose-600 bg-rose-50 border-rose-200" },
+  expired:   { label: "Expired",   className: "text-gray-600 bg-gray-100 border-gray-300" },
 };
 
 export default function DepositsPage() {
@@ -101,6 +102,10 @@ export default function DepositsPage() {
     count: filtered.length,
   };
 
+  const pendingCount  = deposits.filter(d => d.status === "pending").length;
+  const expiredCount  = deposits.filter(d => d.status === "expired").length;
+  const attentionCount = pendingCount + expiredCount;
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
@@ -115,6 +120,30 @@ export default function DepositsPage() {
           <span className="font-medium">KSH {totals.amount.toLocaleString("en-KE")}</span>
         </div>
       </div>
+
+      {/* Attention banner — pending + expired need action */}
+      {attentionCount > 0 && (
+        <div className="flex flex-wrap gap-3">
+          {pendingCount > 0 && (
+            <button
+              className="flex items-center gap-2 text-sm px-4 py-2 rounded-lg bg-amber-50 border border-amber-200 text-amber-700 hover:bg-amber-100 transition-colors"
+              onClick={() => setFilter("pending")}
+            >
+              <Clock className="h-4 w-4" />
+              <span><strong>{pendingCount}</strong> pending payment{pendingCount !== 1 ? "s" : ""} awaiting confirmation</span>
+            </button>
+          )}
+          {expiredCount > 0 && (
+            <button
+              className="flex items-center gap-2 text-sm px-4 py-2 rounded-lg bg-gray-100 border border-gray-300 text-gray-700 hover:bg-gray-200 transition-colors"
+              onClick={() => setFilter("expired")}
+            >
+              <AlertCircle className="h-4 w-4" />
+              <span><strong>{expiredCount}</strong> expired deposit{expiredCount !== 1 ? "s" : ""} — payment timed out</span>
+            </button>
+          )}
+        </div>
+      )}
 
       <div className="flex items-center gap-4">
         <div className="relative flex-1 max-w-md">
@@ -134,6 +163,7 @@ export default function DepositsPage() {
             <SelectItem value="all">All Statuses</SelectItem>
             <SelectItem value="pending">Pending</SelectItem>
             <SelectItem value="active">Active</SelectItem>
+            <SelectItem value="expired">Expired</SelectItem>
             <SelectItem value="completed">Completed</SelectItem>
             <SelectItem value="cancelled">Cancelled</SelectItem>
           </SelectContent>
