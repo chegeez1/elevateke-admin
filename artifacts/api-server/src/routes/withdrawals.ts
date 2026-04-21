@@ -13,14 +13,14 @@ function formatWithdrawal(w: typeof withdrawalsTable.$inferSelect) {
     mpesaPhone: w.mpesaPhone, status: w.status,
     adminNote: w.adminNote ?? null,
     processedAt: w.processedAt?.toISOString() ?? null,
-    createdAt: w.createdAt.toISOString(),
+    createdAt: w.requestedAt.toISOString(),
   };
 }
 
 router.get("/withdrawals", authenticate, async (req, res): Promise<void> => {
   const { userId } = (req as typeof req & { user: JwtPayload }).user;
   const withdrawals = await db.select().from(withdrawalsTable)
-    .where(eq(withdrawalsTable.userId, userId)).orderBy(desc(withdrawalsTable.createdAt));
+    .where(eq(withdrawalsTable.userId, userId)).orderBy(desc(withdrawalsTable.requestedAt));
   res.json(withdrawals.map(formatWithdrawal));
 });
 
