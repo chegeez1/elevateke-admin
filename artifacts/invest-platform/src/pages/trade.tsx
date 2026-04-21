@@ -28,7 +28,7 @@ export default function Trade() {
 
   const handlePlaceTrade = (e: React.FormEvent) => {
     e.preventDefault();
-    placeTradeMut.mutate({ data: { amount: Number(amount), multiplier: Number(multiplier), durationMins: Number(duration) } }, {
+    placeTradeMut.mutate({ data: { amount: Number(amount), multiplier: Number(multiplier), durationMins: Number(duration), direction } }, {
       onSuccess: () => {
         toast.success("Trade placed successfully!");
         queryClient.invalidateQueries({ queryKey: ["/api/trade/history"] });
@@ -56,7 +56,7 @@ export default function Trade() {
 
   const formattedChartData = chartData?.map(d => ({
     ...d,
-    timeLabel: new Date(d.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+    timeLabel: new Date(d.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
   })) || [];
 
   return (
@@ -206,9 +206,21 @@ export default function Trade() {
                     </Button>
                   </div>
 
-                  <Button type="submit" className="w-full mt-4" size="lg" disabled={placeTradeMut.isPending || !!summary?.activeTrade}>
-                    {placeTradeMut.isPending ? "Placing..." : summary?.activeTrade ? "Trade Active" : "Place Trade"}
-                  </Button>
+                  {summary?.activeTrade ? (
+                    <Button
+                      type="button"
+                      className="w-full mt-4 bg-red-600 hover:bg-red-700 text-white"
+                      size="lg"
+                      onClick={handleCashout}
+                      disabled={cashoutMut.isPending}
+                    >
+                      {cashoutMut.isPending ? "Closing..." : "Close Trade"}
+                    </Button>
+                  ) : (
+                    <Button type="submit" className="w-full mt-4" size="lg" disabled={placeTradeMut.isPending}>
+                      {placeTradeMut.isPending ? "Placing..." : "Place Trade"}
+                    </Button>
+                  )}
                 </form>
               </CardContent>
             </Card>
