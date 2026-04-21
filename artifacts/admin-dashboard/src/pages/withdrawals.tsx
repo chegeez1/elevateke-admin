@@ -32,7 +32,7 @@ export default function Withdrawals() {
 
   const approveWithdrawal = useMutation({
     mutationFn: (id: number) => 
-      customFetch(`/api/admin/withdrawals/${id}/approve`, { method: "POST" }),
+      customFetch(`/api/admin/withdrawals/${id}/approve`, { method: "PATCH" }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin-withdrawals"] });
       queryClient.invalidateQueries({ queryKey: ["admin-stats"] });
@@ -46,7 +46,7 @@ export default function Withdrawals() {
   const rejectWithdrawal = useMutation({
     mutationFn: ({ id, reason }: { id: number, reason: string }) => 
       customFetch(`/api/admin/withdrawals/${id}/reject`, {
-        method: "POST",
+        method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ reason }),
       }),
@@ -66,7 +66,7 @@ export default function Withdrawals() {
     if (filter !== "all" && w.status !== filter) return false;
     if (search) {
       const q = search.toLowerCase();
-      return w.userName?.toLowerCase().includes(q) || w.userEmail?.toLowerCase().includes(q) || w.phone?.includes(q);
+      return w.userName?.toLowerCase().includes(q) || w.userEmail?.toLowerCase().includes(q) || w.mpesaPhone?.includes(q);
     }
     return true;
   });
@@ -97,7 +97,7 @@ export default function Withdrawals() {
           <SelectContent>
             <SelectItem value="all">All Statuses</SelectItem>
             <SelectItem value="pending">Pending</SelectItem>
-            <SelectItem value="completed">Approved</SelectItem>
+            <SelectItem value="approved">Approved</SelectItem>
             <SelectItem value="rejected">Rejected</SelectItem>
           </SelectContent>
         </Select>
@@ -127,14 +127,14 @@ export default function Withdrawals() {
                     <div className="font-medium">{w.userName || `User #${w.userId}`}</div>
                     <div className="text-xs text-muted-foreground">{w.userEmail}</div>
                   </TableCell>
-                  <TableCell className="font-mono">{w.phone}</TableCell>
+                  <TableCell className="font-mono">{w.mpesaPhone}</TableCell>
                   <TableCell className="text-right font-bold">KSH {w.amount?.toLocaleString()}</TableCell>
                   <TableCell className="text-sm text-muted-foreground">
-                    {new Date(w.requestedAt || w.createdAt).toLocaleString()}
+                    {new Date(w.createdAt).toLocaleString()}
                   </TableCell>
                   <TableCell>
                     {w.status === 'pending' && <Badge variant="outline" className="text-amber-600 bg-amber-50 border-amber-200">Pending</Badge>}
-                    {w.status === 'completed' && <Badge variant="outline" className="text-emerald-600 bg-emerald-50 border-emerald-200">Approved</Badge>}
+                    {w.status === 'approved' && <Badge variant="outline" className="text-emerald-600 bg-emerald-50 border-emerald-200">Approved</Badge>}
                     {w.status === 'rejected' && <Badge variant="outline" className="text-rose-600 bg-rose-50 border-rose-200">Rejected</Badge>}
                   </TableCell>
                   <TableCell className="text-right">
