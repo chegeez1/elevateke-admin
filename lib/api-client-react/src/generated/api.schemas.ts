@@ -273,6 +273,10 @@ export interface TradeSettings {
 export interface ChartPoint {
   time: string;
   price: number;
+  open: number;
+  close: number;
+  high: number;
+  low: number;
 }
 
 export type PlaceTradeBodyDirection =

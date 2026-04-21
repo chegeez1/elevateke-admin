@@ -59,7 +59,7 @@ export default function Trade() {
 
   const formattedChartData = chartData?.map(d => ({
     ...d,
-    timeLabel: new Date(d.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    timeLabel: new Date(d.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
   })) || [];
 
   return (

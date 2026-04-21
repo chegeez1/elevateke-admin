@@ -3,18 +3,26 @@ import { db, tradesTable, usersTable, tradeSettingsTable } from "@workspace/db";
 import { eq, and, desc } from "drizzle-orm";
 import { authenticate } from "../middlewares/auth";
 import type { JwtPayload } from "../middlewares/auth";
-import { PlaceTradeBody, CashoutTradeBody } from "@workspace/api-zod";
+import {
+  PlaceTradeBody, CashoutTradeBody,
+  GetTradeSettingsResponse, GetTradeChartResponseItem, GetTradeChartResponse,
+  CashoutTradeResponse, GetTradeHistoryResponseItem, GetTradeHistoryResponse,
+} from "@workspace/api-zod";
+import { validateResponse } from "../lib/validate-response";
+
+type TradeSettingsShape = ReturnType<typeof GetTradeSettingsResponse.parse>;
+type ChartPointShape = ReturnType<typeof GetTradeChartResponseItem.parse>;
 
 const router: IRouter = Router();
 
-let tradeSettings = { direction: "up" as "up" | "down", lastUpdated: new Date().toISOString() };
+let tradeSettings: TradeSettingsShape = { direction: "up", updatedAt: new Date().toISOString() };
 
 export async function initTradeSettings() {
   try {
     const [row] = await db.select().from(tradeSettingsTable).limit(1);
     if (row) {
       tradeSettings.direction = row.direction as "up" | "down";
-      tradeSettings.lastUpdated = row.updatedAt.toISOString();
+      tradeSettings.updatedAt = row.updatedAt.toISOString();
     } else {
       await db.insert(tradeSettingsTable).values({ direction: "up" });
     }
@@ -25,7 +33,7 @@ export async function initTradeSettings() {
 
 export async function setTradeDirection(direction: "up" | "down") {
   tradeSettings.direction = direction;
-  tradeSettings.lastUpdated = new Date().toISOString();
+  tradeSettings.updatedAt = new Date().toISOString();
   const [existing] = await db.select().from(tradeSettingsTable).limit(1);
   if (existing) {
     await db.update(tradeSettingsTable).set({ direction, updatedAt: new Date() }).where(eq(tradeSettingsTable.id, existing.id));
@@ -46,8 +54,8 @@ function formatTrade(t: typeof tradesTable.$inferSelect) {
   };
 }
 
-function generateChartData() {
-  const points = [];
+function generateChartData(): Array<ChartPointShape & { open: number; close: number; high: number; low: number }> {
+  const points: Array<ChartPointShape & { open: number; close: number; high: number; low: number }> = [];
   // Seed price with seconds so it's consistent within a minute but shifts over time
   const seedBase = Math.floor(Date.now() / 60000);
   const pseudoRand = (n: number) => {
@@ -71,7 +79,7 @@ function generateChartData() {
     const open = Math.round((price - change * 0.4) * 100) / 100;
     const close = Math.round(price * 100) / 100;
     points.push({
-      timestamp: new Date(now - i * 60000).toISOString(),
+      time: new Date(now - i * 60000).toISOString(),
       price: close,
       open,
       close,
@@ -83,11 +91,11 @@ function generateChartData() {
 }
 
 router.get("/trade/settings", (_req, res): void => {
-  res.json(tradeSettings);
+  res.json(validateResponse("GET /trade/settings", GetTradeSettingsResponse, tradeSettings));
 });
 
 router.get("/trade/chart", (_req, res): void => {
-  res.json(generateChartData());
+  res.json(validateResponse("GET /trade/chart", GetTradeChartResponse, generateChartData()));
 });
 
 router.post("/trade/place", authenticate, async (req, res): Promise<void> => {
@@ -118,7 +126,7 @@ router.post("/trade/place", authenticate, async (req, res): Promise<void> => {
     status: "active", startedAt: new Date(),
   }).returning();
 
-  res.status(201).json(formatTrade(trade));
+  res.status(201).json(validateResponse("POST /trade/place", GetTradeHistoryResponseItem, formatTrade(trade)));
 });
 
 router.post("/trade/cashout", authenticate, async (req, res): Promise<void> => {
@@ -173,14 +181,14 @@ router.post("/trade/cashout", authenticate, async (req, res): Promise<void> => {
     ? `Trade closed — profit KSH ${profitLoss}`
     : `Trade closed — loss KSH ${Math.abs(profitLoss)}`;
 
-  res.json({ trade: formatTrade(updated), profitLoss, newBalance, message, result });
+  res.json(validateResponse("POST /trade/cashout", CashoutTradeResponse, { trade: formatTrade(updated), profitLoss, newBalance, message, result }));
 });
 
 router.get("/trade/history", authenticate, async (req, res): Promise<void> => {
   const { userId } = (req as typeof req & { user: JwtPayload }).user;
   const trades = await db.select().from(tradesTable)
     .where(eq(tradesTable.userId, userId)).orderBy(desc(tradesTable.startedAt)).limit(50);
-  res.json(trades.map(formatTrade));
+  res.json(validateResponse("GET /trade/history", GetTradeHistoryResponse, trades.map(formatTrade)));
 });
 
 export { tradeSettings };

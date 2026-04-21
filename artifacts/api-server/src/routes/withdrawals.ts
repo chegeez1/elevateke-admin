@@ -3,7 +3,8 @@ import { db, withdrawalsTable, usersTable, platformSettingsTable } from "@worksp
 import { eq, and, desc } from "drizzle-orm";
 import { authenticate } from "../middlewares/auth";
 import type { JwtPayload } from "../middlewares/auth";
-import { CreateWithdrawalBody } from "@workspace/api-zod";
+import { CreateWithdrawalBody, GetWithdrawalsResponse, GetWithdrawalsResponseItem } from "@workspace/api-zod";
+import { validateResponse } from "../lib/validate-response";
 
 const router: IRouter = Router();
 
@@ -21,7 +22,7 @@ router.get("/withdrawals", authenticate, async (req, res): Promise<void> => {
   const { userId } = (req as typeof req & { user: JwtPayload }).user;
   const withdrawals = await db.select().from(withdrawalsTable)
     .where(eq(withdrawalsTable.userId, userId)).orderBy(desc(withdrawalsTable.requestedAt));
-  res.json(withdrawals.map(formatWithdrawal));
+  res.json(validateResponse("GET /withdrawals", GetWithdrawalsResponse, withdrawals.map(formatWithdrawal)));
 });
 
 router.post("/withdrawals", authenticate, async (req, res): Promise<void> => {
@@ -62,7 +63,7 @@ router.post("/withdrawals", authenticate, async (req, res): Promise<void> => {
     userId, amount: amount.toString(), phone, status: "pending",
   }).returning();
 
-  res.status(201).json(formatWithdrawal(withdrawal));
+  res.status(201).json(validateResponse("POST /withdrawals", GetWithdrawalsResponseItem, formatWithdrawal(withdrawal)));
 });
 
 export default router;

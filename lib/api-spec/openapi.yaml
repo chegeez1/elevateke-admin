@@ -1477,7 +1477,15 @@ components:
           type: string
         price:
           type: number
-      required: [time, price]
+        open:
+          type: number
+        close:
+          type: number
+        high:
+          type: number
+        low:
+          type: number
+      required: [time, price, open, close, high, low]
 
     PlaceTradeBody:
       type: object

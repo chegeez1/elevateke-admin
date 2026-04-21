@@ -418,6 +418,10 @@ export const GetTradeSettingsResponse = zod.object({
 export const GetTradeChartResponseItem = zod.object({
   time: zod.string(),
   price: zod.number(),
+  open: zod.number(),
+  close: zod.number(),
+  high: zod.number(),
+  low: zod.number(),
 });
 export const GetTradeChartResponse = zod.array(GetTradeChartResponseItem);
 
