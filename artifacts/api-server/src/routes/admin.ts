@@ -3,7 +3,7 @@ import { db, usersTable, depositsTable, withdrawalsTable, earningsTable, deposit
 import { eq, desc, sql, and } from "drizzle-orm";
 import { authenticate, requireAdmin } from "../middlewares/auth";
 import { CreatePlanBody, CreateTaskBody } from "@workspace/api-zod";
-import { tradeSettings } from "./trade";
+import { tradeSettings, setTradeDirection } from "./trade";
 
 const router: IRouter = Router();
 router.use(authenticate, requireAdmin);
@@ -30,12 +30,15 @@ router.get("/admin/stats", async (_req, res): Promise<void> => {
   const [activeDeposits] = await db.select({ count: sql<number>`count(*)` }).from(depositsTable).where(eq(depositsTable.status, "active"));
   const [activeTrades] = await db.select({ count: sql<number>`count(*)` }).from(tradesTable).where(eq(tradesTable.status, "active"));
 
+  const depositedNum = Number(totalDeposited?.total ?? 0);
+  const withdrawnNum = Number(totalWithdrawn?.total ?? 0);
   res.json({
     totalUsers: Number(users?.count ?? 0),
     pendingWithdrawalsCount: Number(pendingWithdrawals?.count ?? 0),
     pendingWithdrawalsAmount: Number(pendingWithdrawals?.total ?? 0),
-    totalDepositedActive: Number(totalDeposited?.total ?? 0),
-    totalWithdrawn: Number(totalWithdrawn?.total ?? 0),
+    totalDepositedActive: depositedNum,
+    totalWithdrawn: withdrawnNum,
+    netRevenue: depositedNum - withdrawnNum,
     totalEarningsPaid: Number(totalEarnings?.total ?? 0),
     activeDeposits: Number(activeDeposits?.count ?? 0),
     activeTradesCount: Number(activeTrades?.count ?? 0),
@@ -220,13 +223,12 @@ router.get("/admin/trade/settings", (_req, res): void => {
   res.json(tradeSettings);
 });
 
-router.patch("/admin/trade/settings", (req, res): void => {
+router.patch("/admin/trade/settings", async (req, res): Promise<void> => {
   const { direction } = req.body as { direction: string };
   if (!["up", "down"].includes(direction)) {
     res.status(400).json({ error: "Direction must be 'up' or 'down'" }); return;
   }
-  tradeSettings.direction = direction as "up" | "down";
-  tradeSettings.lastUpdated = new Date().toISOString();
+  await setTradeDirection(direction as "up" | "down");
   res.json(tradeSettings);
 });
 

@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { db, tradesTable, usersTable } from "@workspace/db";
+import { db, tradesTable, usersTable, tradeSettingsTable } from "@workspace/db";
 import { eq, and, desc } from "drizzle-orm";
 import { authenticate } from "../middlewares/auth";
 import type { JwtPayload } from "../middlewares/auth";
@@ -8,6 +8,31 @@ import { PlaceTradeBody, CashoutTradeBody } from "@workspace/api-zod";
 const router: IRouter = Router();
 
 let tradeSettings = { direction: "up" as "up" | "down", lastUpdated: new Date().toISOString() };
+
+export async function initTradeSettings() {
+  try {
+    const [row] = await db.select().from(tradeSettingsTable).limit(1);
+    if (row) {
+      tradeSettings.direction = row.direction as "up" | "down";
+      tradeSettings.lastUpdated = row.updatedAt.toISOString();
+    } else {
+      await db.insert(tradeSettingsTable).values({ direction: "up" });
+    }
+  } catch (e) {
+    // fallback to default
+  }
+}
+
+export async function setTradeDirection(direction: "up" | "down") {
+  tradeSettings.direction = direction;
+  tradeSettings.lastUpdated = new Date().toISOString();
+  const [existing] = await db.select().from(tradeSettingsTable).limit(1);
+  if (existing) {
+    await db.update(tradeSettingsTable).set({ direction, updatedAt: new Date() }).where(eq(tradeSettingsTable.id, existing.id));
+  } else {
+    await db.insert(tradeSettingsTable).values({ direction });
+  }
+}
 
 function formatTrade(t: typeof tradesTable.$inferSelect) {
   return {

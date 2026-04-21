@@ -1,5 +1,6 @@
 import app from "./app";
 import { logger } from "./lib/logger";
+import { initTradeSettings } from "./routes/trade";
 
 const rawPort = process.env["PORT"];
 
@@ -14,6 +15,8 @@ const port = Number(rawPort);
 if (Number.isNaN(port) || port <= 0) {
   throw new Error(`Invalid PORT value: "${rawPort}"`);
 }
+
+initTradeSettings().catch((e) => logger.warn({ err: e }, "Failed to load trade settings from DB"));
 
 app.listen(port, (err) => {
   if (err) {
