@@ -1,15 +1,34 @@
 import { Layout } from "@/components/layout";
-import { useGetDashboardSummary, useGetAnnouncements, useClaimLoginBonus, useGetEarnings } from "@workspace/api-client-react";
+import { useGetDashboardSummary, useGetAnnouncements, useClaimLoginBonus, customFetch } from "@workspace/api-client-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { formatNumber } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Link } from "wouter";
-import { Wallet, TrendingUp, Gift, Bell, Award, Zap, Star, Users, CheckCircle } from "lucide-react";
+import { Wallet, TrendingUp, Gift, Zap, Star, Users, CheckCircle, ArrowDownCircle, ArrowUpCircle, Clock } from "lucide-react";
 import { toast } from "sonner";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQueryClient, useQuery } from "@tanstack/react-query";
 
-const earningTypeIcon: Record<string, JSX.Element> = {
+type ActivityItem = {
+  id: string;
+  category: "deposit" | "withdrawal" | "earning";
+  subtype: string;
+  amount: number;
+  description: string;
+  date: string;
+  isCredit: boolean;
+};
+
+function useGetActivity() {
+  return useQuery<ActivityItem[]>({
+    queryKey: ["/api/activity"],
+    queryFn: () => customFetch<ActivityItem[]>("/api/activity"),
+  });
+}
+
+const activityIcon: Record<string, JSX.Element> = {
+  deposit: <ArrowDownCircle size={16} className="text-green-600" />,
+  withdrawal: <ArrowUpCircle size={16} className="text-red-500" />,
   login_bonus: <Gift size={16} className="text-amber-500" />,
   daily: <TrendingUp size={16} className="text-blue-500" />,
   referral: <Users size={16} className="text-purple-500" />,
@@ -17,18 +36,10 @@ const earningTypeIcon: Record<string, JSX.Element> = {
   trade: <Zap size={16} className="text-orange-500" />,
 };
 
-const earningLabel: Record<string, string> = {
-  login_bonus: "Daily Login Bonus",
-  daily: "Daily Return",
-  referral: "Referral Bonus",
-  task: "Task Reward",
-  trade: "Trade Profit",
-};
-
 export default function Dashboard() {
   const { data: summary, isLoading: loadingSummary } = useGetDashboardSummary();
   const { data: announcements, isLoading: loadingAnnouncements } = useGetAnnouncements();
-  const { data: recentEarnings } = useGetEarnings();
+  const { data: activity } = useGetActivity();
   const claimBonusMut = useClaimLoginBonus();
   const queryClient = useQueryClient();
 
@@ -37,7 +48,7 @@ export default function Dashboard() {
       onSuccess: (res) => {
         toast.success(`🎉 Claimed KSH ${res.amount}!`, { description: res.message });
         queryClient.invalidateQueries({ queryKey: ["/api/dashboard/summary"] });
-        queryClient.invalidateQueries({ queryKey: ["/api/earnings"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/activity"] });
       },
       onError: (err) => {
         toast.error("Failed to claim bonus", { description: err.data?.error || "Unknown error" });
@@ -154,25 +165,29 @@ export default function Dashboard() {
           <Card>
             <CardHeader className="flex flex-row items-center justify-between">
               <CardTitle className="flex items-center gap-2"><Star size={18} className="text-amber-500" /> Recent Activity</CardTitle>
-              <Link href="/earnings"><Button variant="ghost" size="sm" className="text-primary text-xs">View All</Button></Link>
+              <Link href="/transactions"><Button variant="ghost" size="sm" className="text-primary text-xs">View All</Button></Link>
             </CardHeader>
             <CardContent>
-              {recentEarnings && recentEarnings.length > 0 ? (
+              {activity && activity.length > 0 ? (
                 <div className="space-y-3">
-                  {recentEarnings.slice(0, 5).map(e => (
-                    <div key={e.id} className="flex items-center justify-between py-2 border-b last:border-0">
-                      <div className="flex items-center gap-3">
-                        <div className="bg-gray-100 p-2 rounded-full">
-                          {earningTypeIcon[e.type] ?? <Zap size={16} className="text-gray-500" />}
+                  {activity.slice(0, 6).map(item => {
+                    const iconKey = item.category === "earning" ? item.subtype : item.category;
+                    const icon = activityIcon[iconKey] ?? <Clock size={16} className="text-gray-500" />;
+                    return (
+                      <div key={item.id} className="flex items-center justify-between py-2 border-b last:border-0">
+                        <div className="flex items-center gap-3">
+                          <div className="bg-gray-100 p-2 rounded-full">{icon}</div>
+                          <div>
+                            <p className="text-sm font-medium text-gray-900">{item.description}</p>
+                            <p className="text-xs text-gray-400">{new Date(item.date).toLocaleString()}</p>
+                          </div>
                         </div>
-                        <div>
-                          <p className="text-sm font-medium text-gray-900">{earningLabel[e.type] ?? e.type}</p>
-                          <p className="text-xs text-gray-400">{new Date(e.createdAt).toLocaleString()}</p>
-                        </div>
+                        <span className={`font-bold text-sm ${item.isCredit ? "text-green-600" : "text-red-500"}`}>
+                          {item.isCredit ? "+" : "-"} KSH {formatNumber(item.amount)}
+                        </span>
                       </div>
-                      <span className="font-bold text-green-600 text-sm">+ KSH {formatNumber(e.amount)}</span>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               ) : (
                 <div className="text-center p-8 bg-gray-50 rounded-xl border border-dashed text-gray-500 text-sm">

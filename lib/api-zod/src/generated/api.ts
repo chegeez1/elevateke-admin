@@ -419,6 +419,7 @@ export const PlaceTradeBody = zod.object({
   amount: zod.number(),
   multiplier: zod.number(),
   durationMins: zod.number(),
+  direction: zod.enum(["up", "down"]),
 });
 
 /**

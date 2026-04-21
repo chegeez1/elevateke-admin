@@ -12,6 +12,7 @@ import tradeRouter from "./trade";
 import announcementsRouter from "./announcements";
 import inboxRouter from "./inbox";
 import adminRouter from "./admin";
+import activityRouter from "./activity";
 
 const router: IRouter = Router();
 
@@ -28,5 +29,6 @@ router.use(tradeRouter);
 router.use(announcementsRouter);
 router.use(inboxRouter);
 router.use(adminRouter);
+router.use(activityRouter);
 
 export default router;
