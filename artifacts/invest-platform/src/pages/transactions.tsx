@@ -3,8 +3,9 @@ import { customFetch } from "@workspace/api-client-react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { formatNumber } from "@/lib/utils";
-import { ArrowDownCircle, ArrowUpCircle, Gift, TrendingUp, Users, CheckCircle, Zap, Clock } from "lucide-react";
+import { ArrowDownCircle, ArrowUpCircle, Gift, TrendingUp, Users, CheckCircle, Zap, Clock, RefreshCw, AlertCircle } from "lucide-react";
 
 type ActivityItem = {
   id: string;
@@ -48,9 +49,11 @@ const bgForItem = (item: ActivityItem) => {
 };
 
 export default function Transactions() {
-  const { data: activity, isLoading } = useQuery<ActivityItem[]>({
+  const { data: activity, isLoading, isError, refetch, isFetching } = useQuery<ActivityItem[]>({
     queryKey: ["/api/activity"],
     queryFn: () => customFetch<ActivityItem[]>("/api/activity"),
+    retry: 2,
+    staleTime: 0,
   });
 
   return (
@@ -62,12 +65,23 @@ export default function Transactions() {
         </div>
 
         <Card>
-          <CardHeader>
+          <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle>All Activity</CardTitle>
+            <Button variant="ghost" size="sm" onClick={() => refetch()} disabled={isFetching} className="text-gray-500 gap-1">
+              <RefreshCw size={14} className={isFetching ? "animate-spin" : ""} />
+              {isFetching ? "Refreshing..." : "Refresh"}
+            </Button>
           </CardHeader>
           <CardContent>
             {isLoading ? (
               <div className="text-center py-8 text-gray-500">Loading transactions...</div>
+            ) : isError ? (
+              <div className="text-center p-12 bg-red-50 rounded-lg border border-red-100">
+                <AlertCircle size={32} className="text-red-400 mx-auto mb-3" />
+                <p className="text-red-600 font-medium">Could not load transactions</p>
+                <p className="text-sm text-red-400 mb-4">Please check your connection and try again.</p>
+                <Button variant="outline" size="sm" onClick={() => refetch()}>Try Again</Button>
+              </div>
             ) : activity && activity.length > 0 ? (
               <div className="space-y-3">
                 {activity.map(item => (

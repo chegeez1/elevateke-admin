@@ -11,8 +11,16 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
+// Initialize auth getter synchronously from localStorage so that React Query
+// queries fired on the very first render (before any useEffect) already have
+// the correct Authorization header — avoids a race-condition 401.
+const _initialToken = typeof window !== "undefined" ? localStorage.getItem("elevate_token") : null;
+if (_initialToken) {
+  setAuthTokenGetter(() => _initialToken);
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [token, setTokenState] = useState<string | null>(localStorage.getItem("elevate_token"));
+  const [token, setTokenState] = useState<string | null>(_initialToken);
 
   const setToken = (newToken: string | null) => {
     if (newToken) {
@@ -23,8 +31,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setTokenState(newToken);
   };
 
+  // Keep the getter up to date when the token changes (e.g. login / logout)
   useEffect(() => {
-    setAuthTokenGetter(() => token);
+    setAuthTokenGetter(token ? () => token : null);
   }, [token]);
 
   const logout = () => {

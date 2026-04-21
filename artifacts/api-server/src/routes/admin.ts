@@ -6,7 +6,11 @@ import { CreatePlanBody, CreateTaskBody } from "@workspace/api-zod";
 import { tradeSettings, setTradeDirection } from "./trade";
 
 const router: IRouter = Router();
-router.use(authenticate, requireAdmin);
+// Only lock down paths that start with /admin — do NOT use a blanket
+// router.use(authenticate, requireAdmin) here because the admin router is
+// mounted without a path prefix, meaning it intercepts EVERY request and
+// would 403 all non-admin users before they even reach other routers.
+router.use("/admin", authenticate, requireAdmin);
 
 function formatUser(u: typeof usersTable.$inferSelect) {
   return {
@@ -167,12 +171,12 @@ router.get("/admin/withdrawals", async (_req, res): Promise<void> => {
     userEmail: usersTable.email,
   }).from(withdrawalsTable)
     .leftJoin(usersTable, eq(withdrawalsTable.userId, usersTable.id))
-    .orderBy(desc(withdrawalsTable.createdAt));
+    .orderBy(desc(withdrawalsTable.requestedAt));
   res.json(withdrawals.map(({ w, userName, userEmail }) => ({
     id: w.id, userId: w.userId, userName: userName ?? "Unknown", userEmail: userEmail ?? "",
-    amount: Number(w.amount), mpesaPhone: w.mpesaPhone, status: w.status,
+    amount: Number(w.amount), mpesaPhone: w.phone, status: w.status,
     adminNote: w.adminNote ?? null, processedAt: w.processedAt?.toISOString() ?? null,
-    createdAt: w.createdAt.toISOString(),
+    createdAt: w.requestedAt.toISOString(),
   })));
 });
 
@@ -184,7 +188,7 @@ router.patch("/admin/withdrawals/:id/approve", async (req, res): Promise<void> =
   await db.insert(inboxMessagesTable).values({
     userId: withdrawal.userId,
     title: "Withdrawal Approved",
-    content: `Your withdrawal of KSH ${withdrawal.amount} to ${withdrawal.mpesaPhone} has been approved and will be processed within 2-24 hours.`,
+    content: `Your withdrawal of KSH ${withdrawal.amount} to ${withdrawal.phone} has been approved and will be processed within 2-24 hours.`,
   });
 
   await db.update(withdrawalsTable).set({ status: "approved", processedAt: new Date() })

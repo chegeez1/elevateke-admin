@@ -55,7 +55,7 @@ router.get("/activity", authenticate, async (req, res): Promise<void> => {
 
   activities.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
-  res.json(activities.slice(0, 20));
+  res.json(activities.slice(0, 100));
 });
 
 export default router;
