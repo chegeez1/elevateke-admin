@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/"
+title = "InvestPro Platform"
+version = "1.0.0"
+id = "artifacts/invest-platform"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 21045
+
+[services.development]
+run = "pnpm --filter @workspace/invest-platform run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/invest-platform", "run", "build" ]
+publicDir = "artifacts/invest-platform/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "21045"
+BASE_PATH = "/"
