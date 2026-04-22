@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
-  ArrowLeft, Ban, CheckCircle, Wallet, AlertTriangle, TrendingUp, X, Clock,
+  ArrowLeft, Ban, CheckCircle, Wallet, AlertTriangle, TrendingUp, X, Clock, Bell,
 } from "lucide-react";
 import {
   Dialog,
@@ -162,6 +162,21 @@ export default function UserDetail() {
               <div>
                 <div className="text-sm font-medium text-muted-foreground">VIP Level</div>
                 <div className="text-xl font-semibold font-mono">{user.vipLevel}</div>
+              </div>
+              <div className="col-span-2">
+                <div className="text-sm font-medium text-muted-foreground">Deposit Reminder</div>
+                {user.depositReminderSentAt ? (
+                  <div className="flex items-center gap-2 mt-1">
+                    <Badge variant="outline" className="text-amber-600 bg-amber-50 border-amber-200 gap-1">
+                      <Bell className="h-3 w-3" /> Reminder sent
+                    </Badge>
+                    <span className="text-sm text-muted-foreground">
+                      {new Date(user.depositReminderSentAt).toLocaleString("en-KE")}
+                    </span>
+                  </div>
+                ) : (
+                  <div className="text-sm text-muted-foreground mt-1">No reminder sent</div>
+                )}
               </div>
             </div>
 

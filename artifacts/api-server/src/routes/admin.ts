@@ -20,6 +20,7 @@ function formatUser(u: typeof usersTable.$inferSelect) {
     totalDeposited: Number(u.totalDeposited), vipLevel: u.vipLevel,
     referralCode: u.referralCode, isAdmin: u.isAdmin, isSuspended: u.isSuspended,
     createdAt: u.createdAt.toISOString(),
+    depositReminderSentAt: u.depositReminderSentAt?.toISOString() ?? null,
   };
 }
 
