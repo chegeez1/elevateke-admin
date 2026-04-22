@@ -410,6 +410,71 @@ router.get("/admin/reports/export", async (_req, res): Promise<void> => {
   });
 });
 
+router.get("/admin/reminder-stats", async (_req, res): Promise<void> => {
+  const countsResult = await db.execute(sql`
+    SELECT
+      SUM(CASE WHEN deposit_reminder_sent_at IS NOT NULL  THEN 1 ELSE 0 END)::int AS r1_sent,
+      SUM(CASE WHEN deposit_reminder_sent_at IS NOT NULL  AND total_deposited::numeric > 0 THEN 1 ELSE 0 END)::int AS r1_converted,
+      SUM(CASE WHEN deposit_reminder2_sent_at IS NOT NULL THEN 1 ELSE 0 END)::int AS r2_sent,
+      SUM(CASE WHEN deposit_reminder2_sent_at IS NOT NULL AND total_deposited::numeric > 0 THEN 1 ELSE 0 END)::int AS r2_converted,
+      SUM(CASE WHEN deposit_reminder3_sent_at IS NOT NULL THEN 1 ELSE 0 END)::int AS r3_sent,
+      SUM(CASE WHEN deposit_reminder3_sent_at IS NOT NULL AND total_deposited::numeric > 0 THEN 1 ELSE 0 END)::int AS r3_converted
+    FROM users
+    WHERE is_admin = false
+  `);
+  const counts = countsResult.rows[0];
+
+  const medianQuery = (reminderCol: string) => sql.raw(`
+    SELECT ROUND(PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY
+      EXTRACT(EPOCH FROM (fd.first_deposit_at - u.${reminderCol})) / 3600
+    )::numeric, 1) AS median_hours
+    FROM users u
+    INNER JOIN (
+      SELECT user_id, MIN(created_at) AS first_deposit_at
+      FROM deposits WHERE status IN ('active', 'completed') GROUP BY user_id
+    ) fd ON fd.user_id = u.id
+    WHERE u.${reminderCol} IS NOT NULL
+      AND u.total_deposited::numeric > 0 AND u.is_admin = false
+  `);
+
+  const [m1Result, m2Result, m3Result] = await Promise.all([
+    db.execute(medianQuery("deposit_reminder_sent_at")),
+    db.execute(medianQuery("deposit_reminder2_sent_at")),
+    db.execute(medianQuery("deposit_reminder3_sent_at")),
+  ]);
+  const m1 = m1Result.rows[0];
+  const m2 = m2Result.rows[0];
+  const m3 = m3Result.rows[0];
+
+  const r1Sent = Number(counts?.r1_sent ?? 0);
+  const r1Conv = Number(counts?.r1_converted ?? 0);
+  const r2Sent = Number(counts?.r2_sent ?? 0);
+  const r2Conv = Number(counts?.r2_converted ?? 0);
+  const r3Sent = Number(counts?.r3_sent ?? 0);
+  const r3Conv = Number(counts?.r3_converted ?? 0);
+
+  res.json({
+    reminder1: {
+      sent: r1Sent,
+      converted: r1Conv,
+      conversionRate: r1Sent > 0 ? Math.round((r1Conv / r1Sent) * 100) : 0,
+      medianHoursToDeposit: m1?.median_hours != null ? Number(m1.median_hours) : null,
+    },
+    reminder2: {
+      sent: r2Sent,
+      converted: r2Conv,
+      conversionRate: r2Sent > 0 ? Math.round((r2Conv / r2Sent) * 100) : 0,
+      medianHoursToDeposit: m2?.median_hours != null ? Number(m2.median_hours) : null,
+    },
+    reminder3: {
+      sent: r3Sent,
+      converted: r3Conv,
+      conversionRate: r3Sent > 0 ? Math.round((r3Conv / r3Sent) * 100) : 0,
+      medianHoursToDeposit: m3?.median_hours != null ? Number(m3.median_hours) : null,
+    },
+  });
+});
+
 router.post("/admin/users/:id/adjust-balance", async (req, res): Promise<void> => {
   const id = parseInt(Array.isArray(req.params.id) ? req.params.id[0] : req.params.id, 10);
   const { amount, note } = req.body as { amount: number; note?: string };

@@ -1,13 +1,25 @@
 import { useQuery } from "@tanstack/react-query";
 import { customFetch } from "@workspace/api-client-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Users, CreditCard, ArrowDownToLine, ArrowUpToLine, DollarSign, Activity, Settings, RefreshCw } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Users, CreditCard, ArrowDownToLine, ArrowUpToLine, DollarSign, Activity, RefreshCw, Bell } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 
 const useGetAdminStats = () => {
   return useQuery({
     queryKey: ["admin-stats"],
     queryFn: () => customFetch<any>("/api/admin/stats"),
+  });
+};
+
+const useGetReminderStats = () => {
+  return useQuery({
+    queryKey: ["admin-reminder-stats"],
+    queryFn: () => customFetch<{
+      reminder1: { sent: number; converted: number; conversionRate: number; medianHoursToDeposit: number | null };
+      reminder2: { sent: number; converted: number; conversionRate: number; medianHoursToDeposit: number | null };
+      reminder3: { sent: number; converted: number; conversionRate: number; medianHoursToDeposit: number | null };
+    }>("/api/admin/reminder-stats"),
   });
 };
 
@@ -26,6 +38,7 @@ const useUpdateTradeDirection = () => {
 
 export default function Dashboard() {
   const { data: stats, isLoading, refetch } = useGetAdminStats();
+  const { data: reminderStats } = useGetReminderStats();
   const updateTrade = useUpdateTradeDirection();
 
   if (isLoading) {
@@ -42,6 +55,19 @@ export default function Dashboard() {
   };
 
   const isUp = stats.tradeDirection === "up";
+
+  const formatMedian = (hours: number | null | undefined) => {
+    if (hours == null) return "—";
+    if (hours < 1) return `${Math.round(hours * 60)}m`;
+    if (hours < 24) return `${hours}h`;
+    return `${(hours / 24).toFixed(1)}d`;
+  };
+
+  const reminderRows = [
+    { label: "Reminder 1", sublabel: "24h after signup", data: reminderStats?.reminder1, color: "blue" },
+    { label: "Reminder 2", sublabel: "3 days after signup", data: reminderStats?.reminder2, color: "amber" },
+    { label: "Reminder 3", sublabel: "7 days — final nudge", data: reminderStats?.reminder3, color: "rose" },
+  ] as const;
 
   return (
     <div className="space-y-6">
@@ -161,6 +187,74 @@ export default function Dashboard() {
           </CardContent>
         </Card>
       </div>
+
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <div>
+            <CardTitle className="flex items-center gap-2">
+              <Bell className="h-5 w-5 text-primary" />
+              Reminder Campaign Performance
+            </CardTitle>
+            <CardDescription className="mt-1">How many non-depositing users converted after each automated nudge</CardDescription>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {!reminderStats ? (
+            <p className="text-sm text-muted-foreground">Loading...</p>
+          ) : (
+            <div className="grid gap-4 md:grid-cols-3">
+              {reminderRows.map(({ label, sublabel, data }) => {
+                const rate = data?.conversionRate ?? 0;
+                const colorClass =
+                  rate >= 20 ? "text-emerald-600" :
+                  rate >= 10 ? "text-amber-600" :
+                  "text-rose-600";
+                const barColor =
+                  rate >= 20 ? "bg-emerald-500" :
+                  rate >= 10 ? "bg-amber-500" :
+                  "bg-rose-500";
+                return (
+                  <div key={label} className="border rounded-lg p-4 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="font-semibold text-sm">{label}</p>
+                        <p className="text-xs text-muted-foreground">{sublabel}</p>
+                      </div>
+                      {data && data.sent > 0 ? (
+                        <Badge variant="outline" className={`${colorClass} border-current font-bold text-base px-3 py-1`}>
+                          {rate}%
+                        </Badge>
+                      ) : (
+                        <Badge variant="outline" className="text-muted-foreground">No data</Badge>
+                      )}
+                    </div>
+                    <div className="w-full bg-muted rounded-full h-2">
+                      <div
+                        className={`h-2 rounded-full transition-all ${barColor}`}
+                        style={{ width: `${Math.min(rate, 100)}%` }}
+                      />
+                    </div>
+                    <div className="grid grid-cols-3 gap-2 text-center">
+                      <div>
+                        <p className="text-lg font-bold">{(data?.sent ?? 0).toLocaleString()}</p>
+                        <p className="text-xs text-muted-foreground">Sent</p>
+                      </div>
+                      <div>
+                        <p className="text-lg font-bold text-emerald-600">{(data?.converted ?? 0).toLocaleString()}</p>
+                        <p className="text-xs text-muted-foreground">Deposited</p>
+                      </div>
+                      <div>
+                        <p className="text-lg font-bold text-primary">{formatMedian(data?.medianHoursToDeposit)}</p>
+                        <p className="text-xs text-muted-foreground">Median time</p>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }
