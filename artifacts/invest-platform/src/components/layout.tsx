@@ -6,9 +6,17 @@ import { LogOut, Home, Wallet, TrendingUp, CheckSquare, ArrowDownToLine, History
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 
+const bottomTabItems = [
+  { href: "/dashboard", label: "Home", icon: Home },
+  { href: "/deposit", label: "Deposit", icon: Wallet },
+  { href: "/earnings", label: "Earnings", icon: History, earningsDot: true },
+  { href: "/withdraw", label: "Withdraw", icon: ArrowDownToLine },
+  { href: "/profile", label: "Profile", icon: User },
+];
+
 export function Layout({ children }: { children: ReactNode }) {
   const { isAuthenticated, logout } = useAuth();
-  const [, setLocation] = useLocation();
+  const [location, setLocation] = useLocation();
   const { data: user, isLoading: loadingUser } = useGetMe({ query: { enabled: isAuthenticated } });
   const { data: summary } = useGetDashboardSummary({ query: { enabled: isAuthenticated } });
 
@@ -90,9 +98,37 @@ export function Layout({ children }: { children: ReactNode }) {
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 p-4 md:p-8 max-w-6xl mx-auto w-full">
+      <div className="flex-1 p-4 md:p-8 max-w-6xl mx-auto w-full pb-20 md:pb-8">
         {children}
       </div>
+
+      {/* Mobile Bottom Tab Bar */}
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 flex items-stretch z-50">
+        {bottomTabItems.map((item) => {
+          const isActive = location === item.href;
+          const showDot = item.earningsDot && summary?.canClaimEarnings === true;
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              className={`flex-1 flex flex-col items-center justify-center py-2 gap-0.5 relative text-xs ${
+                isActive ? "text-primary" : "text-gray-500"
+              }`}
+            >
+              <span className="relative">
+                <item.icon size={22} />
+                {showDot && (
+                  <span className="absolute -top-1 -right-1 flex h-2.5 w-2.5">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
+                    <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-green-400" />
+                  </span>
+                )}
+              </span>
+              <span>{item.label}</span>
+            </Link>
+          );
+        })}
+      </nav>
     </div>
   );
 }
