@@ -60,7 +60,7 @@ export function Layout({ children }: { children: ReactNode }) {
                   {item.badge ? <span className="ml-auto bg-destructive text-white text-xs px-2 py-1 rounded-full">{item.badge}</span> : null}
                   {item.dot ? (
                     <span className="ml-auto flex-shrink-0 relative flex h-2.5 w-2.5">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
+                      {location !== "/earnings" && <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />}
                       <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-green-400" />
                     </span>
                   ) : null}
@@ -85,7 +85,7 @@ export function Layout({ children }: { children: ReactNode }) {
               {item.badge ? <span className="ml-auto bg-destructive text-white text-xs px-2 py-1 rounded-full">{item.badge}</span> : null}
               {item.dot ? (
                 <span className="ml-auto flex-shrink-0 relative flex h-2.5 w-2.5">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
+                  {location !== "/earnings" && <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />}
                   <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-green-400" />
                 </span>
               ) : null}
@@ -119,7 +119,7 @@ export function Layout({ children }: { children: ReactNode }) {
                 <item.icon size={22} />
                 {showDot && (
                   <span className="absolute -top-1 -right-1 flex h-2.5 w-2.5">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
+                    {!isActive && <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />}
                     <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-green-400" />
                   </span>
                 )}
