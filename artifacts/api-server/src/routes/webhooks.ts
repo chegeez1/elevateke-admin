@@ -8,7 +8,7 @@ import {
   inboxMessagesTable,
 } from "@workspace/db";
 import { eq, and, or } from "drizzle-orm";
-import { sendDepositConfirmationEmail } from "../mailer";
+import { sendDepositConfirmationEmail, sendDepositFailedEmail } from "../mailer";
 
 const router: IRouter = Router();
 
@@ -111,6 +111,14 @@ router.post(
         .catch((err: unknown) =>
           req.log.error({ err }, "Webhook: failed to send payment-failed inbox notification"),
         );
+
+      const [failedUser] = await db.select({ email: usersTable.email, name: usersTable.name })
+        .from(usersTable).where(eq(usersTable.id, failedDeposit.userId));
+      if (failedUser) {
+        sendDepositFailedEmail(failedUser.email, failedUser.name).catch((err: unknown) =>
+          req.log.error({ err }, "Webhook: failed to send deposit-failed email"),
+        );
+      }
 
       req.log.info({ reference, depositId: failedDeposit.id }, "Deposit marked failed via webhook");
       res.status(200).json({ received: true });
@@ -237,6 +245,8 @@ router.post(
         to: user.email,
         name: user.name,
         message: confirmationMessage,
+        amount: Number(deposit.amount),
+        planName,
       }).catch((err: unknown) =>
         req.log.error({ err }, "Webhook: failed to send deposit confirmation email"),
       );

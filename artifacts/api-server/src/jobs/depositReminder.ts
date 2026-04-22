@@ -1,6 +1,7 @@
 import { db, usersTable, inboxMessagesTable } from "@workspace/db";
 import { isNull, lt, eq, and, sql } from "drizzle-orm";
 import { logger } from "../lib/logger";
+import { sendDepositReminderEmail } from "../mailer";
 
 const REMINDER1_TITLE = "Don't miss out — fund your ElevateKe account!";
 
@@ -52,7 +53,7 @@ async function sendFirstReminders(): Promise<void> {
   const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
 
   const undeposited = await db
-    .select({ id: usersTable.id })
+    .select({ id: usersTable.id, email: usersTable.email })
     .from(usersTable)
     .where(
       and(
@@ -81,6 +82,10 @@ async function sendFirstReminders(): Promise<void> {
         .set({ depositReminderSentAt: new Date() })
         .where(eq(usersTable.id, user.id));
 
+      sendDepositReminderEmail(user.email, 1).catch((err: unknown) =>
+        logger.warn({ err, userId: user.id }, "Failed to send first deposit reminder email"),
+      );
+
       logger.info({ userId: user.id }, "First deposit reminder sent");
     } catch (err) {
       logger.error({ err, userId: user.id }, "Failed to send first deposit reminder for user");
@@ -92,7 +97,7 @@ async function sendSecondReminders(): Promise<void> {
   const seventyTwoHoursAgo = new Date(Date.now() - 72 * 60 * 60 * 1000);
 
   const undeposited = await db
-    .select({ id: usersTable.id })
+    .select({ id: usersTable.id, email: usersTable.email })
     .from(usersTable)
     .where(
       and(
@@ -120,6 +125,10 @@ async function sendSecondReminders(): Promise<void> {
         .update(usersTable)
         .set({ depositReminder2SentAt: new Date() })
         .where(eq(usersTable.id, user.id));
+
+      sendDepositReminderEmail(user.email, 2).catch((err: unknown) =>
+        logger.warn({ err, userId: user.id }, "Failed to send second deposit reminder email"),
+      );
 
       logger.info({ userId: user.id }, "Second deposit reminder sent");
     } catch (err) {

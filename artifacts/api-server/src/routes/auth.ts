@@ -8,6 +8,7 @@ import type { JwtPayload } from "../middlewares/auth";
 import { loginHistoryTable } from "@workspace/db";
 import crypto from "crypto";
 import { logger } from "../lib/logger";
+import { sendWelcomeEmail } from "../mailer";
 
 const router: IRouter = Router();
 
@@ -76,6 +77,10 @@ router.post("/auth/register", async (req, res): Promise<void> => {
       await db.insert(referralsTable).values({ referrerId: referrer2.referredBy, referredId: user.id, level: 2, bonusAmount: "0" });
     }
   }
+
+  sendWelcomeEmail(user.email, user.name).catch((err: unknown) => {
+    logger.warn({ err, userId: user.id }, "Failed to send welcome email");
+  });
 
   db.insert(inboxMessagesTable).values({
     userId: user.id,

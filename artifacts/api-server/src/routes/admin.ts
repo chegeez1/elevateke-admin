@@ -4,6 +4,7 @@ import { eq, desc, sql, and } from "drizzle-orm";
 import { authenticate, requireAdmin } from "../middlewares/auth";
 import { CreatePlanBody, CreateTaskBody } from "@workspace/api-zod";
 import { tradeSettings, setTradeDirection } from "./trade";
+import { sendWithdrawalApprovedEmail, sendWithdrawalRejectedEmail } from "../mailer";
 
 const router: IRouter = Router();
 // Only lock down paths that start with /admin — do NOT use a blanket
@@ -281,6 +282,13 @@ router.patch("/admin/withdrawals/:id/approve", async (req, res): Promise<void> =
   await db.update(withdrawalsTable).set({ status: "approved", processedAt: new Date() })
     .where(eq(withdrawalsTable.id, id));
 
+  const [approvedUser] = await db.select({ email: usersTable.email, name: usersTable.name })
+    .from(usersTable).where(eq(usersTable.id, withdrawal.userId));
+  if (approvedUser) {
+    sendWithdrawalApprovedEmail(approvedUser.email, approvedUser.name, Number(withdrawal.amount))
+      .catch(() => {});
+  }
+
   res.json({ success: true, message: "Withdrawal approved" });
 });
 
@@ -306,6 +314,13 @@ router.patch("/admin/withdrawals/:id/reject", async (req, res): Promise<void> =>
   await db.update(withdrawalsTable).set({
     status: "rejected", adminNote: reason ?? null, processedAt: new Date(),
   }).where(eq(withdrawalsTable.id, id));
+
+  const [rejectedUser] = await db.select({ email: usersTable.email, name: usersTable.name })
+    .from(usersTable).where(eq(usersTable.id, withdrawal.userId));
+  if (rejectedUser) {
+    sendWithdrawalRejectedEmail(rejectedUser.email, rejectedUser.name, Number(withdrawal.amount), reason)
+      .catch(() => {});
+  }
 
   res.json({ success: true, message: "Withdrawal rejected and balance refunded" });
 });
