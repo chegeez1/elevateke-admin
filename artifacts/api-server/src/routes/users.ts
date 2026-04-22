@@ -58,6 +58,7 @@ router.get("/users/referrals", authenticate, async (req, res): Promise<void> => 
     bonusAmount: referralsTable.bonusAmount,
     createdAt: referralsTable.createdAt,
     name: usersTable.name,
+    totalDeposited: usersTable.totalDeposited,
   }).from(referralsTable)
     .leftJoin(usersTable, eq(referralsTable.referredId, usersTable.id))
     .where(eq(referralsTable.referrerId, userId));
@@ -65,20 +66,23 @@ router.get("/users/referrals", authenticate, async (req, res): Promise<void> => 
   const totalEarnings = await db.select({ total: sql<number>`coalesce(sum(${earningsTable.amount}), 0)` })
     .from(earningsTable).where(and(eq(earningsTable.userId, userId), eq(earningsTable.type, "referral")));
 
-  const l1 = refs.filter(r => r.level === 1);
-  const l2 = refs.filter(r => r.level === 2);
+  // Only count referrals where the referred user has made at least one deposit
+  const activeRefs = refs.filter(r => Number(r.totalDeposited ?? 0) > 0);
+  const l1Active = activeRefs.filter(r => r.level === 1);
+  const l2Active = activeRefs.filter(r => r.level === 2);
   const baseUrl = process.env.SITE_URL || "https://elevateke.com";
 
   res.json({
     referralCode: user.referralCode,
     referralLink: `${baseUrl}/register?ref=${user.referralCode}`,
-    totalReferrals: refs.length,
-    level1Count: l1.length,
-    level2Count: l2.length,
+    totalReferrals: activeRefs.length,
+    level1Count: l1Active.length,
+    level2Count: l2Active.length,
     totalReferralEarnings: Number(totalEarnings[0]?.total ?? 0),
     referrals: refs.map(r => ({
       id: r.id, name: r.name ?? "Unknown", level: r.level,
       bonusAmount: Number(r.bonusAmount), joinedAt: r.createdAt.toISOString(),
+      hasDeposited: Number(r.totalDeposited ?? 0) > 0,
     })),
   });
 });

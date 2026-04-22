@@ -166,6 +166,7 @@ export const GetReferralsResponse = zod.object({
       level: zod.number(),
       bonusAmount: zod.number(),
       joinedAt: zod.string(),
+      hasDeposited: zod.boolean(),
     }),
   ),
 });
@@ -620,6 +621,7 @@ export const GetAdminUserResponse = zod.object({
       level: zod.number(),
       bonusAmount: zod.number(),
       joinedAt: zod.string(),
+      hasDeposited: zod.boolean(),
     }),
   ),
 });

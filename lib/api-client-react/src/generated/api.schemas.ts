@@ -88,6 +88,7 @@ export interface ReferralEntry {
   level: number;
   bonusAmount: number;
   joinedAt: string;
+  hasDeposited: boolean;
 }
 
 export interface ReferralInfo {

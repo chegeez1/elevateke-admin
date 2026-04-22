@@ -1203,7 +1203,9 @@ components:
           type: number
         joinedAt:
           type: string
-      required: [id, name, level, bonusAmount, joinedAt]
+        hasDeposited:
+          type: boolean
+      required: [id, name, level, bonusAmount, joinedAt, hasDeposited]
 
     LoginHistoryEntry:
       type: object
