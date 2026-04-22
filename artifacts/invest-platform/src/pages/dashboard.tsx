@@ -203,7 +203,7 @@ export default function Dashboard() {
           </Card>
         )}
 
-        {summary.loginBonusAvailable && (
+        {summary.loginBonusAvailable && summary.hasSetPin && summary.hasClaimedLoginBonus && summary.hasFirstDeposit && summary.hasFirstEarning && (
           <Card className="bg-gradient-to-r from-primary to-emerald-600 text-white border-none shadow-lg">
             <CardContent className="p-6 flex flex-col sm:flex-row items-center justify-between gap-4">
               <div className="flex items-center gap-4">
