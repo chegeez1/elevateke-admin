@@ -23,8 +23,8 @@ export default function Withdraw() {
 
   const handleWithdraw = (e: React.FormEvent) => {
     e.preventDefault();
-    if (Number(amount) < 100) {
-      toast.error("Minimum withdrawal is KSH 100");
+    if (Number(amount) < 1300) {
+      toast.error("Minimum withdrawal is KSH 1,300");
       return;
     }
     
@@ -63,7 +63,7 @@ export default function Withdraw() {
           <Card className="lg:col-span-1">
             <CardHeader>
               <CardTitle>Request Withdrawal</CardTitle>
-              <CardDescription>Minimum withdrawal: KSH 100</CardDescription>
+              <CardDescription>Minimum withdrawal: KSH 1,300</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="bg-primary/5 rounded-lg p-4 mb-6 border border-primary/10">

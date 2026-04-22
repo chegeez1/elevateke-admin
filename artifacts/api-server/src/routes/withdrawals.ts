@@ -39,7 +39,7 @@ router.post("/withdrawals", authenticate, async (req, res): Promise<void> => {
       const [maxRow] = await db.select().from(platformSettingsTable)
         .where(eq(platformSettingsTable.key, "max_withdrawal_amount"));
       return {
-        min: Number(minRow?.value ?? 100),
+        min: Number(minRow?.value ?? 1300),
         max: Number(maxRow?.value ?? 100000),
       };
     });
