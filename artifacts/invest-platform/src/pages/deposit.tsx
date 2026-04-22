@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Layout } from "@/components/layout";
 import {
   useGetPlans,
@@ -22,7 +22,7 @@ import { toast } from "sonner";
 import { useQueryClient, useMutation } from "@tanstack/react-query";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { ExternalLink, AlertTriangle, Clock, RefreshCw, XCircle, TrendingUp, CalendarDays, Zap } from "lucide-react";
+import { ExternalLink, AlertTriangle, Clock, RefreshCw, XCircle, TrendingUp, CalendarDays, Zap, CheckCircle2 } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 
 type ApiErrorData = { error: string; expired?: boolean; retryable?: boolean };
@@ -145,13 +145,21 @@ export default function Deposit() {
   const [selectedPlan, setSelectedPlan] = useState<number | null>(null);
   const [amount, setAmount] = useState("");
   const [phone, setPhone] = useState("");
-  const [paymentStep, setPaymentStep] = useState<"form" | "paystack">("form");
+  const [paymentStep, setPaymentStep] = useState<"form" | "paystack" | "success">("form");
   const [currentReference, setCurrentReference] = useState("");
   const [currentAuthUrl, setCurrentAuthUrl] = useState("");
+  const [currentDepositId, setCurrentDepositId] = useState<number | null>(null);
   const [verifyAttempts, setVerifyAttempts] = useState(0);
   const [verifyError, setVerifyError] = useState<string | null>(null);
   const [isExpired, setIsExpired] = useState(false);
   const [depositExpiresAt, setDepositExpiresAt] = useState<string | null>(null);
+  const autoCloseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (autoCloseTimerRef.current) clearTimeout(autoCloseTimerRef.current);
+    };
+  }, []);
 
   const createDepositMut = useCreateDeposit();
   const verifyDepositMut = useVerifyDeposit();
@@ -167,11 +175,39 @@ export default function Deposit() {
     onError: () => toast.error("Failed to cancel deposit"),
   });
 
+  useEffect(() => {
+    if (paymentStep !== "paystack" || !currentDepositId || isExpired) return;
+    const interval = setInterval(() => {
+      queryClient.invalidateQueries({ queryKey: ["/api/deposits"] });
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [paymentStep, currentDepositId, isExpired, queryClient]);
+
+  useEffect(() => {
+    if (paymentStep !== "paystack" || !currentDepositId || !deposits) return;
+    const target = deposits.find(d => d.id === currentDepositId);
+    if (target?.status === "active") {
+      toast.success("Deposit confirmed! Your plan is now active.");
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard/summary"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/activity"] });
+      setPaymentStep("success");
+      autoCloseTimerRef.current = setTimeout(() => {
+        resetDialog();
+      }, 3500);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [deposits, currentDepositId, paymentStep]);
+
   const resetDialog = () => {
+    if (autoCloseTimerRef.current) {
+      clearTimeout(autoCloseTimerRef.current);
+      autoCloseTimerRef.current = null;
+    }
     setSelectedPlan(null);
     setPaymentStep("form");
     setCurrentReference("");
     setCurrentAuthUrl("");
+    setCurrentDepositId(null);
     setVerifyAttempts(0);
     setVerifyError(null);
     setIsExpired(false);
@@ -187,6 +223,11 @@ export default function Deposit() {
         setCurrentAuthUrl(res.paystackAuthUrl);
         const dep = res.deposit as (typeof res.deposit & { expiresAt?: string | null }) | undefined;
         setDepositExpiresAt(dep?.expiresAt ?? null);
+        if (dep?.id !== undefined) {
+          setCurrentDepositId(dep.id);
+        } else {
+          console.warn("Deposit response missing id — auto-confirm polling disabled for this session.");
+        }
         setVerifyAttempts(0);
         setVerifyError(null);
         setIsExpired(false);
@@ -364,7 +405,9 @@ export default function Deposit() {
               <DialogDescription>
                 {paymentStep === "form"
                   ? "Enter amount and M-Pesa phone number to proceed."
-                  : "Complete payment on your phone, then click verify below."}
+                  : paymentStep === "success"
+                  ? "Your deposit has been activated."
+                  : "Complete payment on your phone — we'll confirm it automatically."}
               </DialogDescription>
             </DialogHeader>
 
@@ -385,6 +428,17 @@ export default function Deposit() {
                   </Button>
                 </DialogFooter>
               </form>
+            ) : paymentStep === "success" ? (
+              <div className="flex flex-col items-center gap-4 py-6 text-center">
+                <CheckCircle2 size={56} className="text-green-500" />
+                <div>
+                  <p className="text-lg font-semibold text-green-800">Payment Confirmed!</p>
+                  <p className="text-sm text-gray-500 mt-1">
+                    KSH {formatNumber(Number(amount))} is now active. You will start earning daily returns.
+                  </p>
+                </div>
+                <p className="text-xs text-gray-400">This dialog will close automatically…</p>
+              </div>
             ) : (
               <div className="space-y-4 py-2">
                 {depositExpiresAt && !isExpired && (
@@ -410,22 +464,27 @@ export default function Deposit() {
                         </a>
                       </Button>
                     </div>
+
+                    <div className="flex items-center gap-2 text-sm text-blue-700 bg-blue-50 border border-blue-200 rounded-lg px-3 py-2">
+                      <RefreshCw size={14} className="animate-spin shrink-0" />
+                      <span>Waiting for payment confirmation — this will update automatically.</span>
+                    </div>
+
                     <div className="pt-2 border-t">
-                      <p className="text-sm text-gray-500 mb-3 text-center">
-                        After approving the M-Pesa prompt on your phone, click below.
+                      <p className="text-xs text-gray-400 mb-2 text-center">
+                        Payment not updating? You can check manually:
                       </p>
                       <Button
-                        variant="secondary"
-                        className="w-full"
+                        variant="ghost"
+                        size="sm"
+                        className="w-full text-gray-500 hover:text-gray-700 text-xs h-8"
                         onClick={handleVerify}
                         disabled={verifyDepositMut.isPending}
                       >
                         {verifyDepositMut.isPending ? (
-                          <><RefreshCw size={14} className="mr-2 animate-spin" />Verifying...</>
-                        ) : verifyAttempts > 0 ? (
-                          <><RefreshCw size={14} className="mr-2" />Try Again</>
+                          <><RefreshCw size={12} className="mr-1 animate-spin" />Checking...</>
                         ) : (
-                          "I've Completed Payment"
+                          <><RefreshCw size={12} className="mr-1" />Check Payment Status</>
                         )}
                       </Button>
                     </div>
