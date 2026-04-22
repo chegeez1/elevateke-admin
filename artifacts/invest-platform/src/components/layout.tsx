@@ -23,7 +23,7 @@ export function Layout({ children }: { children: ReactNode }) {
     { href: "/trade", label: "Trade", icon: TrendingUp },
     { href: "/tasks", label: "Tasks", icon: CheckSquare },
     { href: "/withdraw", label: "Withdraw", icon: ArrowDownToLine },
-    { href: "/earnings", label: "Earnings", icon: History },
+    { href: "/earnings", label: "Earnings", icon: History, dot: summary?.canClaimEarnings === true },
     { href: "/transactions", label: "Transactions", icon: History },
     { href: "/referrals", label: "Referrals", icon: Users },
     { href: "/inbox", label: "Inbox", icon: Mail, badge: summary?.unreadMessages },
@@ -50,6 +50,7 @@ export function Layout({ children }: { children: ReactNode }) {
                   <item.icon size={20} />
                   <span>{item.label}</span>
                   {item.badge ? <span className="ml-auto bg-destructive text-white text-xs px-2 py-1 rounded-full">{item.badge}</span> : null}
+                  {item.dot ? <span className="ml-auto w-2.5 h-2.5 rounded-full bg-green-400 flex-shrink-0" /> : null}
                 </Link>
               ))}
               <Button variant="ghost" className="justify-start px-2 hover:bg-primary-foreground/10 text-white" onClick={logout}>
@@ -69,6 +70,7 @@ export function Layout({ children }: { children: ReactNode }) {
               <item.icon size={20} />
               <span>{item.label}</span>
               {item.badge ? <span className="ml-auto bg-destructive text-white text-xs px-2 py-1 rounded-full">{item.badge}</span> : null}
+              {item.dot ? <span className="ml-auto w-2.5 h-2.5 rounded-full bg-green-400 flex-shrink-0" /> : null}
             </Link>
           ))}
         </div>
