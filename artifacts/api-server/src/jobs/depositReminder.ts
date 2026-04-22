@@ -1,5 +1,5 @@
 import { db, usersTable, inboxMessagesTable } from "@workspace/db";
-import { isNull, lt, eq, and, sql } from "drizzle-orm";
+import { isNull, isNotNull, lt, eq, and, sql } from "drizzle-orm";
 import { logger } from "../lib/logger";
 import { sendDepositReminderEmail } from "../mailer";
 
@@ -171,6 +171,7 @@ async function sendThirdReminders(): Promise<void> {
         eq(usersTable.isAdmin, false),
         eq(usersTable.isSuspended, false),
         lt(usersTable.createdAt, oneHundredSixtyEightHoursAgo),
+        isNotNull(usersTable.depositReminder2SentAt),
         isNull(usersTable.depositReminder3SentAt),
         sql`${usersTable.totalDeposited} = 0`,
       ),
