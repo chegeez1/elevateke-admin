@@ -220,6 +220,10 @@ export const GetDashboardSummaryResponse = zod.object({
       endedAt: zod.string().nullish(),
     })
     .optional(),
+  hasSetPin: zod.boolean(),
+  hasClaimedLoginBonus: zod.boolean(),
+  hasFirstDeposit: zod.boolean(),
+  hasFirstEarning: zod.boolean(),
 });
 
 /**

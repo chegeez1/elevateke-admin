@@ -1,11 +1,12 @@
 import { Layout } from "@/components/layout";
-import { useGetDashboardSummary, useGetAnnouncements, useClaimLoginBonus, customFetch } from "@workspace/api-client-react";
+import { useGetDashboardSummary, useGetAnnouncements, useClaimLoginBonus, customFetch, type DashboardSummary } from "@workspace/api-client-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Progress } from "@/components/ui/progress";
 import { formatNumber } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Link } from "wouter";
-import { Wallet, TrendingUp, Gift, Zap, Star, Users, CheckCircle, ArrowDownCircle, ArrowUpCircle, Clock, Award, Bell, Rocket } from "lucide-react";
+import { Wallet, TrendingUp, Gift, Zap, Star, Users, CheckCircle, Circle, ArrowDownCircle, ArrowUpCircle, Clock, Award, Bell, Rocket, ListChecks } from "lucide-react";
 import { toast } from "sonner";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
 
@@ -35,6 +36,97 @@ const activityIcon: Record<string, JSX.Element> = {
   task: <CheckCircle size={16} className="text-green-500" />,
   trade: <Zap size={16} className="text-orange-500" />,
 };
+
+function OnboardingChecklist({ summary, onClaimBonus, claimingBonus }: {
+  summary: DashboardSummary;
+  onClaimBonus: () => void;
+  claimingBonus: boolean;
+}) {
+  const steps = [
+    {
+      id: "login_bonus",
+      label: "Claim your daily login bonus",
+      description: "Collect your free daily reward",
+      done: summary.hasClaimedLoginBonus,
+      action: summary.loginBonusAvailable ? (
+        <Button size="sm" variant="outline" onClick={onClaimBonus} disabled={claimingBonus} className="text-xs h-7">
+          {claimingBonus ? "Claiming…" : "Claim Now"}
+        </Button>
+      ) : null,
+    },
+    {
+      id: "first_deposit",
+      label: "Make your first deposit",
+      description: "Fund your account to start earning",
+      done: summary.hasFirstDeposit,
+      action: !summary.hasFirstDeposit ? (
+        <Link href="/deposit"><Button size="sm" variant="outline" className="text-xs h-7">Deposit</Button></Link>
+      ) : null,
+    },
+    {
+      id: "first_earning",
+      label: "Claim your first daily earning",
+      description: "Collect returns from your active deposit",
+      done: summary.hasFirstEarning,
+      action: !summary.hasFirstEarning ? (
+        <Link href="/earnings"><Button size="sm" variant="outline" className="text-xs h-7">Earnings</Button></Link>
+      ) : null,
+    },
+    {
+      id: "set_pin",
+      label: "Set a withdrawal PIN",
+      description: "Secure your withdrawals with a 4-digit PIN",
+      done: summary.hasSetPin,
+      action: !summary.hasSetPin ? (
+        <Link href="/profile"><Button size="sm" variant="outline" className="text-xs h-7">Set PIN</Button></Link>
+      ) : null,
+    },
+  ];
+
+  const completedCount = steps.filter(s => s.done).length;
+  const allDone = completedCount === steps.length;
+
+  if (allDone) return null;
+
+  const pct = Math.round((completedCount / steps.length) * 100);
+
+  return (
+    <Card className="border-primary/20 bg-gradient-to-br from-primary/5 to-emerald-50">
+      <CardHeader className="pb-3">
+        <CardTitle className="flex items-center gap-2 text-base">
+          <ListChecks size={18} className="text-primary" />
+          Getting Started
+          <Badge variant="secondary" className="ml-auto text-xs font-normal">
+            {completedCount} / {steps.length} complete
+          </Badge>
+        </CardTitle>
+        <Progress value={pct} className="h-1.5 mt-1" />
+      </CardHeader>
+      <CardContent className="pt-0 space-y-3">
+        {steps.map(step => (
+          <div key={step.id} className="flex items-center gap-3">
+            {step.done ? (
+              <CheckCircle size={18} className="text-emerald-500 shrink-0" />
+            ) : (
+              <Circle size={18} className="text-gray-300 shrink-0" />
+            )}
+            <div className="flex-1 min-w-0">
+              <p className={`text-sm font-medium leading-tight ${step.done ? "line-through text-gray-400" : "text-gray-800"}`}>
+                {step.label}
+              </p>
+              {!step.done && (
+                <p className="text-xs text-gray-500 mt-0.5">{step.description}</p>
+              )}
+            </div>
+            {!step.done && step.action && (
+              <div className="shrink-0">{step.action}</div>
+            )}
+          </div>
+        ))}
+      </CardContent>
+    </Card>
+  );
+}
 
 export default function Dashboard() {
   const { data: summary, isLoading: loadingSummary } = useGetDashboardSummary();
@@ -83,6 +175,12 @@ export default function Dashboard() {
             </Badge>
           </div>
         </div>
+
+        <OnboardingChecklist
+          summary={summary}
+          onClaimBonus={handleClaimBonus}
+          claimingBonus={claimBonusMut.isPending}
+        />
 
         {summary.balance === 0 && summary.totalDeposited === 0 && (
           <Card className="bg-gradient-to-r from-amber-500 to-orange-500 text-white border-none shadow-lg">

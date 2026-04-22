@@ -66,6 +66,10 @@ router.get("/dashboard/summary", authenticate, async (req, res): Promise<void> =
     vipLevel: user.vipLevel,
     unreadMessages: Number(unreadMessages[0]?.count ?? 0),
     loginBonusAvailable,
+    hasSetPin: !!user.pinHash,
+    hasClaimedLoginBonus: !!user.loginBonusClaimedAt,
+    hasFirstDeposit: Number(user.totalDeposited) > 0,
+    hasFirstEarning: Number(user.totalEarned) > 0,
     activeTrade: activeTrade ? {
       id: activeTrade.id, amount: Number(activeTrade.amount), multiplier: activeTrade.multiplier,
       durationMins: activeTrade.durationMins, direction: activeTrade.direction,

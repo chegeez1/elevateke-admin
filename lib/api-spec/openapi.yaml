@@ -1258,7 +1258,15 @@ components:
           type: number
         activeTrade:
           $ref: "#/components/schemas/Trade"
-      required: [balance, totalEarned, totalDeposited, pendingWithdrawals, activeDeposits, todayEarned, vipLevel, unreadMessages, loginBonusAvailable, canClaimEarnings, dailyEarningsTotal, claimableEarningsTotal]
+        hasSetPin:
+          type: boolean
+        hasClaimedLoginBonus:
+          type: boolean
+        hasFirstDeposit:
+          type: boolean
+        hasFirstEarning:
+          type: boolean
+      required: [balance, totalEarned, totalDeposited, pendingWithdrawals, activeDeposits, todayEarned, vipLevel, unreadMessages, loginBonusAvailable, canClaimEarnings, dailyEarningsTotal, claimableEarningsTotal, hasSetPin, hasClaimedLoginBonus, hasFirstDeposit, hasFirstEarning]
 
     DepositPlan:
       type: object

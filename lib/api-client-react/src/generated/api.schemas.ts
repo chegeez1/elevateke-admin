@@ -145,6 +145,10 @@ export interface DashboardSummary {
   dailyEarningsTotal: number;
   claimableEarningsTotal: number;
   activeTrade?: Trade;
+  hasSetPin: boolean;
+  hasClaimedLoginBonus: boolean;
+  hasFirstDeposit: boolean;
+  hasFirstEarning: boolean;
 }
 
 export interface DepositPlan {
