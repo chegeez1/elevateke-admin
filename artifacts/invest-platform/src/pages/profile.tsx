@@ -1,16 +1,17 @@
 import { useState, useEffect } from "react";
 import { Layout } from "@/components/layout";
 import { useGetProfile, useUpdateProfile, useGetLoginHistory } from "@workspace/api-client-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
-import { User, Award, History, Globe } from "lucide-react";
+import { User, Award, History, KeyRound, ShieldCheck } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { formatNumber } from "@/lib/utils";
+import { customFetch } from "@workspace/api-client-react";
 
 export default function Profile() {
   const { data: profile, isLoading: loadingProfile } = useGetProfile();
@@ -22,6 +23,11 @@ export default function Profile() {
   const [phone, setPhone] = useState("");
   const [mpesaPhone, setMpesaPhone] = useState("");
   const [language, setLanguage] = useState("en");
+
+  const [currentCredential, setCurrentCredential] = useState("");
+  const [newPin, setNewPin] = useState("");
+  const [confirmPin, setConfirmPin] = useState("");
+  const [pinPending, setPinPending] = useState(false);
 
   useEffect(() => {
     if (profile) {
@@ -44,6 +50,35 @@ export default function Profile() {
         toast.error("Update failed", { description: err.data?.error || "Unknown error" });
       }
     });
+  };
+
+  const handlePinChange = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (newPin !== confirmPin) {
+      toast.error("PINs do not match");
+      return;
+    }
+    if (!/^\d{4,6}$/.test(newPin)) {
+      toast.error("PIN must be 4–6 digits (numbers only)");
+      return;
+    }
+    setPinPending(true);
+    try {
+      await customFetch("/api/users/pin", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ currentCredential, newPin }),
+      });
+      toast.success("Withdrawal PIN updated successfully!");
+      setCurrentCredential("");
+      setNewPin("");
+      setConfirmPin("");
+      queryClient.invalidateQueries({ queryKey: ["/api/users/profile"] });
+    } catch (err: any) {
+      toast.error(err?.data?.error || "Failed to update PIN");
+    } finally {
+      setPinPending(false);
+    }
   };
 
   const getVipColor = (level: string = "") => {
@@ -106,6 +141,79 @@ export default function Profile() {
                   <div className="pt-4 flex justify-end">
                     <Button type="submit" disabled={updateMut.isPending}>
                       {updateMut.isPending ? "Saving..." : "Save Changes"}
+                    </Button>
+                  </div>
+                </form>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <KeyRound size={20} />
+                  Withdrawal PIN
+                  {profile?.hasPin && (
+                    <Badge variant="outline" className="ml-2 text-emerald-600 border-emerald-300 bg-emerald-50 gap-1">
+                      <ShieldCheck size={12} /> Active
+                    </Badge>
+                  )}
+                </CardTitle>
+                <CardDescription>
+                  {profile?.hasPin
+                    ? "Your withdrawal PIN is set. Enter your current PIN to change it."
+                    : "Set a dedicated 4–6 digit PIN for withdrawals instead of your account password."}
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <form onSubmit={handlePinChange} className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="currentCredential">
+                        {profile?.hasPin ? "Current PIN" : "Account Password"}
+                      </Label>
+                      <Input
+                        id="currentCredential"
+                        type="password"
+                        inputMode={profile?.hasPin ? "numeric" : "text"}
+                        value={currentCredential}
+                        onChange={e => setCurrentCredential(e.target.value)}
+                        placeholder={profile?.hasPin ? "Current PIN" : "Your password"}
+                        required
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="newPin">New PIN</Label>
+                      <Input
+                        id="newPin"
+                        type="password"
+                        inputMode="numeric"
+                        maxLength={6}
+                        value={newPin}
+                        onChange={e => setNewPin(e.target.value.replace(/\D/g, ""))}
+                        placeholder="4–6 digits"
+                        required
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="confirmPin">Confirm PIN</Label>
+                      <Input
+                        id="confirmPin"
+                        type="password"
+                        inputMode="numeric"
+                        maxLength={6}
+                        value={confirmPin}
+                        onChange={e => setConfirmPin(e.target.value.replace(/\D/g, ""))}
+                        placeholder="Repeat new PIN"
+                        required
+                      />
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between pt-2">
+                    <p className="text-xs text-gray-500">
+                      Your PIN is required every time you request a withdrawal.
+                    </p>
+                    <Button type="submit" disabled={pinPending} variant="outline" className="border-primary text-primary hover:bg-primary hover:text-white">
+                      {pinPending ? "Saving..." : profile?.hasPin ? "Change PIN" : "Set PIN"}
                     </Button>
                   </div>
                 </form>

@@ -4,6 +4,7 @@ import { eq, desc, and, gte, sql } from "drizzle-orm";
 import { authenticate } from "../middlewares/auth";
 import type { JwtPayload } from "../middlewares/auth";
 import { UpdateProfileBody } from "@workspace/api-zod";
+import bcrypt from "bcrypt";
 
 const router: IRouter = Router();
 
@@ -22,6 +23,7 @@ router.get("/users/profile", authenticate, async (req, res): Promise<void> => {
     totalDeposited: Number(user.totalDeposited), vipLevel: user.vipLevel,
     referralCode: user.referralCode, language: user.language,
     createdAt: user.createdAt.toISOString(),
+    hasPin: !!user.pinHash,
   });
 });
 
@@ -44,6 +46,33 @@ router.patch("/users/profile", authenticate, async (req, res): Promise<void> => 
     vipLevel: user.vipLevel, referralCode: user.referralCode, language: user.language,
     createdAt: user.createdAt.toISOString(),
   });
+});
+
+router.patch("/users/pin", authenticate, async (req, res): Promise<void> => {
+  const { userId } = getUser(req);
+  const { currentCredential, newPin } = req.body as { currentCredential?: string; newPin?: string };
+
+  if (!newPin || !/^\d{4,6}$/.test(newPin)) {
+    res.status(400).json({ error: "PIN must be 4–6 digits (numbers only)" }); return;
+  }
+  if (!currentCredential) {
+    res.status(400).json({ error: "Current password or PIN is required" }); return;
+  }
+
+  const [user] = await db.select().from(usersTable).where(eq(usersTable.id, userId));
+  if (!user) { res.status(404).json({ error: "User not found" }); return; }
+
+  if (user.pinHash) {
+    const valid = await bcrypt.compare(currentCredential, user.pinHash);
+    if (!valid) { res.status(401).json({ error: "Current PIN is incorrect" }); return; }
+  } else {
+    const valid = await bcrypt.compare(currentCredential, user.passwordHash);
+    if (!valid) { res.status(401).json({ error: "Password is incorrect" }); return; }
+  }
+
+  const pinHash = await bcrypt.hash(newPin, 10);
+  await db.update(usersTable).set({ pinHash }).where(eq(usersTable.id, userId));
+  res.json({ message: "Withdrawal PIN updated successfully" });
 });
 
 router.get("/users/referrals", authenticate, async (req, res): Promise<void> => {

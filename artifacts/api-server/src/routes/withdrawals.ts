@@ -5,6 +5,7 @@ import { authenticate } from "../middlewares/auth";
 import type { JwtPayload } from "../middlewares/auth";
 import { CreateWithdrawalBody, GetWithdrawalsResponse, GetWithdrawalsResponseItem } from "@workspace/api-zod";
 import { validateResponse } from "../lib/validate-response";
+import bcrypt from "bcrypt";
 
 const router: IRouter = Router();
 
@@ -30,7 +31,7 @@ router.post("/withdrawals", authenticate, async (req, res): Promise<void> => {
   const parsed = CreateWithdrawalBody.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
 
-  const { amount, phone } = parsed.data;
+  const { amount, phone, pin } = parsed.data;
 
   const settings = await db.select().from(platformSettingsTable)
     .where(eq(platformSettingsTable.key, "min_withdrawal_amount"))
@@ -46,6 +47,15 @@ router.post("/withdrawals", authenticate, async (req, res): Promise<void> => {
 
   const [user] = await db.select().from(usersTable).where(eq(usersTable.id, userId));
   if (!user) { res.status(404).json({ error: "User not found" }); return; }
+
+  if (user.pinHash) {
+    const pinValid = await bcrypt.compare(pin, user.pinHash);
+    if (!pinValid) { res.status(401).json({ error: "Incorrect withdrawal PIN" }); return; }
+  } else {
+    const pwValid = await bcrypt.compare(pin, user.passwordHash);
+    if (!pwValid) { res.status(401).json({ error: "Incorrect password" }); return; }
+  }
+
   if (amount < settings.min) {
     res.status(400).json({ error: `Minimum withdrawal is KSH ${settings.min}` }); return;
   }

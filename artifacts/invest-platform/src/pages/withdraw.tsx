@@ -81,8 +81,8 @@ export default function Withdraw() {
                   <Input id="phone" type="tel" value={phone} onChange={e => setPhone(e.target.value)} required />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="pin">Account Password/PIN</Label>
-                  <Input id="pin" type="password" value={pin} onChange={e => setPin(e.target.value)} required />
+                  <Label htmlFor="pin">Withdrawal PIN</Label>
+                  <Input id="pin" type="password" inputMode="numeric" value={pin} onChange={e => setPin(e.target.value)} placeholder="Enter your PIN (or password if no PIN set)" required />
                 </div>
                 <Button type="submit" className="w-full" disabled={withdrawMut.isPending}>
                   <ArrowDownToLine className="mr-2" size={16} />
