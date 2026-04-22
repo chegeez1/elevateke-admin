@@ -50,7 +50,12 @@ export function Layout({ children }: { children: ReactNode }) {
                   <item.icon size={20} />
                   <span>{item.label}</span>
                   {item.badge ? <span className="ml-auto bg-destructive text-white text-xs px-2 py-1 rounded-full">{item.badge}</span> : null}
-                  {item.dot ? <span className="ml-auto w-2.5 h-2.5 rounded-full bg-green-400 flex-shrink-0" /> : null}
+                  {item.dot ? (
+                    <span className="ml-auto flex-shrink-0 relative flex h-2.5 w-2.5">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
+                      <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-green-400" />
+                    </span>
+                  ) : null}
                 </Link>
               ))}
               <Button variant="ghost" className="justify-start px-2 hover:bg-primary-foreground/10 text-white" onClick={logout}>
@@ -70,7 +75,12 @@ export function Layout({ children }: { children: ReactNode }) {
               <item.icon size={20} />
               <span>{item.label}</span>
               {item.badge ? <span className="ml-auto bg-destructive text-white text-xs px-2 py-1 rounded-full">{item.badge}</span> : null}
-              {item.dot ? <span className="ml-auto w-2.5 h-2.5 rounded-full bg-green-400 flex-shrink-0" /> : null}
+              {item.dot ? (
+                <span className="ml-auto flex-shrink-0 relative flex h-2.5 w-2.5">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
+                  <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-green-400" />
+                </span>
+              ) : null}
             </Link>
           ))}
         </div>
