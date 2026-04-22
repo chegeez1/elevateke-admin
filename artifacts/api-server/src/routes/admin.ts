@@ -414,11 +414,20 @@ router.get("/admin/reminder-stats", async (_req, res): Promise<void> => {
   const countsResult = await db.execute(sql`
     SELECT
       SUM(CASE WHEN deposit_reminder_sent_at IS NOT NULL  THEN 1 ELSE 0 END)::int AS r1_sent,
-      SUM(CASE WHEN deposit_reminder_sent_at IS NOT NULL  AND total_deposited::numeric > 0 THEN 1 ELSE 0 END)::int AS r1_converted,
+      SUM(CASE WHEN deposit_reminder_sent_at IS NOT NULL  AND EXISTS (
+        SELECT 1 FROM deposits d WHERE d.user_id = users.id
+          AND d.status IN ('active','completed') AND d.created_at >= users.deposit_reminder_sent_at
+      ) THEN 1 ELSE 0 END)::int AS r1_converted,
       SUM(CASE WHEN deposit_reminder2_sent_at IS NOT NULL THEN 1 ELSE 0 END)::int AS r2_sent,
-      SUM(CASE WHEN deposit_reminder2_sent_at IS NOT NULL AND total_deposited::numeric > 0 THEN 1 ELSE 0 END)::int AS r2_converted,
+      SUM(CASE WHEN deposit_reminder2_sent_at IS NOT NULL AND EXISTS (
+        SELECT 1 FROM deposits d WHERE d.user_id = users.id
+          AND d.status IN ('active','completed') AND d.created_at >= users.deposit_reminder2_sent_at
+      ) THEN 1 ELSE 0 END)::int AS r2_converted,
       SUM(CASE WHEN deposit_reminder3_sent_at IS NOT NULL THEN 1 ELSE 0 END)::int AS r3_sent,
-      SUM(CASE WHEN deposit_reminder3_sent_at IS NOT NULL AND total_deposited::numeric > 0 THEN 1 ELSE 0 END)::int AS r3_converted
+      SUM(CASE WHEN deposit_reminder3_sent_at IS NOT NULL AND EXISTS (
+        SELECT 1 FROM deposits d WHERE d.user_id = users.id
+          AND d.status IN ('active','completed') AND d.created_at >= users.deposit_reminder3_sent_at
+      ) THEN 1 ELSE 0 END)::int AS r3_converted
     FROM users
     WHERE is_admin = false
   `);
@@ -434,7 +443,8 @@ router.get("/admin/reminder-stats", async (_req, res): Promise<void> => {
       FROM deposits WHERE status IN ('active', 'completed') GROUP BY user_id
     ) fd ON fd.user_id = u.id
     WHERE u.${reminderCol} IS NOT NULL
-      AND u.total_deposited::numeric > 0 AND u.is_admin = false
+      AND fd.first_deposit_at >= u.${reminderCol}
+      AND u.is_admin = false
   `);
 
   const [m1Result, m2Result, m3Result] = await Promise.all([

@@ -15,6 +15,7 @@ const useGetAdminStats = () => {
 const useGetReminderStats = () => {
   return useQuery({
     queryKey: ["admin-reminder-stats"],
+    retry: 1,
     queryFn: () => customFetch<{
       reminder1: { sent: number; converted: number; conversionRate: number; medianHoursToDeposit: number | null };
       reminder2: { sent: number; converted: number; conversionRate: number; medianHoursToDeposit: number | null };
@@ -38,7 +39,7 @@ const useUpdateTradeDirection = () => {
 
 export default function Dashboard() {
   const { data: stats, isLoading, refetch } = useGetAdminStats();
-  const { data: reminderStats } = useGetReminderStats();
+  const { data: reminderStats, isError: reminderError } = useGetReminderStats();
   const updateTrade = useUpdateTradeDirection();
 
   if (isLoading) {
@@ -199,7 +200,9 @@ export default function Dashboard() {
           </div>
         </CardHeader>
         <CardContent>
-          {!reminderStats ? (
+          {reminderError ? (
+            <p className="text-sm text-destructive">Failed to load reminder stats. Please refresh the page.</p>
+          ) : !reminderStats ? (
             <p className="text-sm text-muted-foreground">Loading...</p>
           ) : (
             <div className="grid gap-4 md:grid-cols-3">
