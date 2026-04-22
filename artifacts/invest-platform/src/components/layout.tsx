@@ -1,8 +1,8 @@
-import { ReactNode } from "react";
+import { ReactNode, useState } from "react";
 import { Link, useLocation } from "wouter";
 import { useAuth } from "@/lib/auth";
 import { useGetMe, useGetDashboardSummary } from "@workspace/api-client-react";
-import { LogOut, Home, Wallet, TrendingUp, CheckSquare, ArrowDownToLine, History, Users, Mail, User, HelpCircle, PhoneCall, Menu } from "lucide-react";
+import { LogOut, Home, Wallet, TrendingUp, CheckSquare, ArrowDownToLine, History, Users, Mail, User, HelpCircle, PhoneCall, Menu, MoreHorizontal } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 
@@ -17,6 +17,7 @@ const bottomTabItems = [
 export function Layout({ children }: { children: ReactNode }) {
   const { isAuthenticated, logout } = useAuth();
   const [location, setLocation] = useLocation();
+  const [drawerOpen, setDrawerOpen] = useState(false);
   const { data: user, isLoading: loadingUser } = useGetMe({ query: { enabled: isAuthenticated } });
   const { data: summary } = useGetDashboardSummary({ query: { enabled: isAuthenticated } });
 
@@ -45,7 +46,7 @@ export function Layout({ children }: { children: ReactNode }) {
       {/* Mobile Nav */}
       <div className="md:hidden flex items-center justify-between p-4 bg-primary text-primary-foreground">
         <span className="font-bold text-xl">ElevateKe</span>
-        <Sheet>
+        <Sheet open={drawerOpen} onOpenChange={setDrawerOpen}>
           <SheetTrigger asChild>
             <Button variant="ghost" size="icon" className="text-white">
               <Menu />
@@ -54,7 +55,7 @@ export function Layout({ children }: { children: ReactNode }) {
           <SheetContent side="left" className="bg-primary text-white border-none">
             <div className="flex flex-col gap-4 mt-8">
               {navItems.map((item) => (
-                <Link key={item.href} href={item.href} className="flex items-center gap-3 p-2 hover:bg-primary-foreground/10 rounded-lg">
+                <Link key={item.href} href={item.href} className="flex items-center gap-3 p-2 hover:bg-primary-foreground/10 rounded-lg" onClick={() => setDrawerOpen(false)}>
                   <item.icon size={20} />
                   <span>{item.label}</span>
                   {item.badge ? <span className="ml-auto bg-destructive text-white text-xs px-2 py-1 rounded-full">{item.badge}</span> : null}
@@ -128,6 +129,14 @@ export function Layout({ children }: { children: ReactNode }) {
             </Link>
           );
         })}
+        {/* More tab — opens the full navigation drawer */}
+        <button
+          onClick={() => setDrawerOpen(true)}
+          className="flex-1 flex flex-col items-center justify-center py-2 gap-0.5 text-xs text-gray-500"
+        >
+          <MoreHorizontal size={22} />
+          <span>More</span>
+        </button>
       </nav>
     </div>
   );
