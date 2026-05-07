@@ -20,8 +20,8 @@ function generateReferralCode(): string {
   return crypto.randomBytes(4).toString("hex").toUpperCase();
 }
 
-function generateToken(): string {
-  return crypto.randomBytes(32).toString("hex");
+function generateOtp(): string {
+  return Math.floor(100000 + Math.random() * 900000).toString();
 }
 
 function formatUser(user: typeof usersTable.$inferSelect) {
@@ -59,8 +59,8 @@ router.post("/auth/register", async (req, res): Promise<void> => {
 
   const passwordHash = await bcrypt.hash(password, 10);
   const newReferralCode = generateReferralCode();
-  const verificationToken = generateToken();
-  const verificationExpires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+  const verificationToken = generateOtp();
+  const verificationExpires = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
 
   let referredBy: number | null = null;
   if (referralCode) {
@@ -158,19 +158,23 @@ router.post("/auth/login", async (req, res): Promise<void> => {
 
 // ─── Verify Email ─────────────────────────────────────────────────────────────
 router.post("/auth/verify-email", async (req, res): Promise<void> => {
-  const { token } = req.body as { token?: string };
-  if (!token || typeof token !== "string") {
-    res.status(400).json({ error: "Verification token is required." });
+  const { email, otp } = req.body as { email?: string; otp?: string };
+  if (!email || typeof email !== "string") {
+    res.status(400).json({ error: "Email is required." });
+    return;
+  }
+  if (!otp || typeof otp !== "string") {
+    res.status(400).json({ error: "OTP code is required." });
     return;
   }
 
   const [user] = await db
     .select()
     .from(usersTable)
-    .where(eq(usersTable.emailVerificationToken, token));
+    .where(eq(usersTable.email, email));
 
   if (!user) {
-    res.status(400).json({ error: "Invalid or already-used verification link." });
+    res.status(400).json({ error: "Invalid email or OTP code." });
     return;
   }
 
@@ -180,8 +184,13 @@ router.post("/auth/verify-email", async (req, res): Promise<void> => {
     return;
   }
 
+  if (user.emailVerificationToken !== otp) {
+    res.status(400).json({ error: "Incorrect OTP code. Please try again." });
+    return;
+  }
+
   if (user.emailVerificationExpires && user.emailVerificationExpires < new Date()) {
-    res.status(400).json({ error: "Verification link has expired. Please request a new one." });
+    res.status(400).json({ error: "OTP has expired. Please request a new one." });
     return;
   }
 
@@ -232,7 +241,7 @@ router.post("/auth/resend-verification", async (req, res): Promise<void> => {
 
   const [user] = await db.select().from(usersTable).where(eq(usersTable.email, email));
   if (!user) {
-    res.json({ message: "If that email exists, a verification link has been sent." });
+    res.json({ message: "If that email exists, a new OTP has been sent." });
     return;
   }
 
@@ -241,19 +250,19 @@ router.post("/auth/resend-verification", async (req, res): Promise<void> => {
     return;
   }
 
-  const newToken = generateToken();
-  const newExpires = new Date(Date.now() + 24 * 60 * 60 * 1000);
+  const newOtp = generateOtp();
+  const newExpires = new Date(Date.now() + 15 * 60 * 1000);
 
   await db
     .update(usersTable)
-    .set({ emailVerificationToken: newToken, emailVerificationExpires: newExpires })
+    .set({ emailVerificationToken: newOtp, emailVerificationExpires: newExpires })
     .where(eq(usersTable.id, user.id));
 
-  sendEmailVerificationEmail(user.email, user.name, newToken).catch((err: unknown) => {
+  sendEmailVerificationEmail(user.email, user.name, newOtp).catch((err: unknown) => {
     logger.warn({ err, userId: user.id }, "Failed to resend verification email");
   });
 
-  res.json({ message: "If that email exists, a verification link has been sent." });
+  res.json({ message: "If that email exists, a new OTP has been sent." });
 });
 
 // ─── Forgot Password ──────────────────────────────────────────────────────────

@@ -103,8 +103,8 @@ router.post("/admin/users/:id/suspend", async (req, res): Promise<void> => {
     const [user] = await db.select().from(usersTable).where(eq(usersTable.id, id));
     if (!user) { res.status(404).json({ error: "User not found" }); return; }
     if (user.emailVerified) { res.status(400).json({ error: "User email is already verified" }); return; }
-    const token = crypto.randomBytes(32).toString("hex");
-    const expires = new Date(Date.now() + 24 * 60 * 60 * 1000);
+    const token = Math.floor(100000 + Math.random() * 900000).toString();
+    const expires = new Date(Date.now() + 15 * 60 * 1000);
     await db.update(usersTable).set({
       emailVerificationToken: token,
       emailVerificationExpires: expires,

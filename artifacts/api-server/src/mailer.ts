@@ -167,52 +167,39 @@ export async function sendWelcomeEmail(to: string, name: string): Promise<void> 
 }
 
 export async function sendEmailVerificationEmail(
-  to: string,
-  name: string,
-  token: string,
-): Promise<void> {
-  const verifyUrl = `${SITE_URL}/verify-email?token=${token}`;
-  const subject = 'Verify your ElevateKe email address';
+    to: string,
+    name: string,
+    otp: string,
+  ): Promise<void> {
+    const subject = 'Your ElevateKe verification code';
+    const html =
+      pageWrapper(
+        subject,
+        heroSection('Verify Your Email', 'Enter the code below to activate your account') +
+        `<table width="100%" cellpadding="0" cellspacing="0" role="presentation"><tr><td style="padding:24px 40px">
+            <p style="margin:0 0 24px;color:#444;font-size:15px;line-height:1.6">
+              Hi ${escapeHtml(name)},<br><br>
+              Use this 6-digit code to verify your email address. It expires in <strong>15 minutes</strong>.
+            </p>
+            <div style="background:#f0fdf4;border:2px solid #16a34a;border-radius:12px;padding:24px;text-align:center;margin:0 0 24px">
+              <p style="margin:0 0 8px;color:#15803d;font-size:13px;font-weight:600;letter-spacing:1px;text-transform:uppercase">Your verification code</p>
+              <p style="margin:0;font-size:48px;font-weight:800;letter-spacing:12px;color:#15803d;font-family:monospace">${otp}</p>
+            </div>
+            <p style="margin:0;color:#888;font-size:13px;line-height:1.5">
+              If you didn't create an ElevateKe account, you can safely ignore this email.
+            </p>
+        </td></tr></table>`
+      );
+    const text = `Hi ${name},\n\nYour ElevateKe email verification code is: ${otp}\n\nThis code expires in 15 minutes.\n\nIf you didn't sign up, ignore this email.`;
 
-  const html = baseTemplate(
-    heroSection('Verify Your Email', 'One quick step to activate your account') +
-      bodySection(`
-        <p style="margin:0 0 16px;font-size:15px;color:#374151;line-height:1.7;">Hi <strong>${name}</strong>,</p>
-        <p style="margin:0 0 16px;font-size:15px;color:#374151;line-height:1.7;">
-          Thanks for signing up for ElevateKe! Before you can log in and start earning,
-          we need to verify your email address.
-        </p>
-        <p style="margin:0 0 20px;font-size:15px;color:#374151;line-height:1.7;">
-          Click the button below — this link is valid for <strong>24 hours</strong>.
-        </p>
-        ${ctaButton('Verify My Email →', verifyUrl)}
-        ${divider()}
-        <p style="margin:0 0 12px;font-size:13px;color:#6b7280;text-align:center;line-height:1.6;">
-          If the button doesn't work, copy and paste this link into your browser:
-        </p>
-        <p style="margin:0;font-size:12px;color:#16a34a;text-align:center;word-break:break-all;">
-          ${verifyUrl}
-        </p>
-        ${divider()}
-        <p style="margin:0;font-size:12px;color:#9ca3af;text-align:center;line-height:1.6;">
-          If you didn't create an ElevateKe account, you can safely ignore this email.
-        </p>
-      `),
-    'Verify your ElevateKe email address to activate your account.',
-  );
-
-  const text = `Hi ${name},
-
-Please verify your email address to activate your ElevateKe account.
-
-Click this link (valid for 24 hours):
-${verifyUrl}
-
-If you didn't create an account, you can ignore this email.
-
-— The ElevateKe Team`;
-  await send({ to, subject, html, text });
-}
+    await resend.emails.send({
+      from: FROM,
+      to,
+      subject,
+      html,
+      text,
+    });
+  }
 
 export async function sendPasswordResetEmail(
   to: string,
