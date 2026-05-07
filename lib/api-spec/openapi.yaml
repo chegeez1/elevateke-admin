@@ -142,6 +142,40 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /auth/verify-email:
+    post:
+      operationId: verifyEmail
+      tags: [auth]
+      summary: Verify email address using OTP code
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, otp]
+              properties:
+                email:
+                  type: string
+                  format: email
+                otp:
+                  type: string
+                  minLength: 6
+                  maxLength: 6
+      responses:
+        "200":
+          description: Email verified
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+        "400":
+          description: Invalid or expired OTP
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /users/profile:
     get:
       operationId: getProfile
@@ -1829,37 +1863,3 @@ components:
         totalStats:
           $ref: "#/components/schemas/AdminStats"
       required: [users, totalStats]
-  /auth/verify-email:
-    post:
-      operationId: verifyEmail
-      tags: [auth]
-      summary: Verify email address using OTP code
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [email, otp]
-              properties:
-                email:
-                  type: string
-                  format: email
-                otp:
-                  type: string
-                  minLength: 6
-                  maxLength: 6
-      responses:
-        "200":
-          description: Email verified
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/AuthResponse"
-        "400":
-          description: Invalid or expired OTP
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-
