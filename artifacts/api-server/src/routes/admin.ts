@@ -4,7 +4,8 @@ import { eq, desc, sql, and } from "drizzle-orm";
 import { authenticate, requireAdmin } from "../middlewares/auth";
 import { CreatePlanBody, CreateTaskBody } from "@workspace/api-zod";
 import { tradeSettings, setTradeDirection } from "./trade";
-import { sendWithdrawalApprovedEmail, sendWithdrawalRejectedEmail } from "../mailer";
+import crypto from "node:crypto";
+  import { sendEmailVerificationEmail, sendWithdrawalApprovedEmail, sendWithdrawalRejectedEmail } from "../mailer";
 
 const router: IRouter = Router();
 // Only lock down paths that start with /admin — do NOT use a blanket
@@ -96,7 +97,23 @@ router.post("/admin/users/:id/suspend", async (req, res): Promise<void> => {
   res.json({ success: true, message: "User suspended" });
 });
 
-router.post("/admin/users/:id/unsuspend", async (req, res): Promise<void> => {
+
+  router.post("/admin/users/:id/resend-verification", async (req, res): Promise<void> => {
+    const id = parseInt(Array.isArray(req.params.id) ? req.params.id[0] : req.params.id, 10);
+    const [user] = await db.select().from(usersTable).where(eq(usersTable.id, id));
+    if (!user) { res.status(404).json({ error: "User not found" }); return; }
+    if (user.emailVerified) { res.status(400).json({ error: "User email is already verified" }); return; }
+    const token = crypto.randomBytes(32).toString("hex");
+    const expires = new Date(Date.now() + 24 * 60 * 60 * 1000);
+    await db.update(usersTable).set({
+      emailVerificationToken: token,
+      emailVerificationExpires: expires,
+    }).where(eq(usersTable.id, id));
+    await sendEmailVerificationEmail(user.email, user.name, token);
+    res.json({ message: "Verification email sent" });
+  });
+  
+  router.post("/admin/users/:id/unsuspend", async (req, res): Promise<void> => {
   const id = parseInt(Array.isArray(req.params.id) ? req.params.id[0] : req.params.id, 10);
   await db.update(usersTable).set({ isSuspended: false }).where(eq(usersTable.id, id));
   res.json({ success: true, message: "User unsuspended" });

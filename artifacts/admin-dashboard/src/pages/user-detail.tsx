@@ -9,7 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
   ArrowLeft, Ban, CheckCircle, Wallet, AlertTriangle, TrendingUp, X, Clock, Bell,
-  ShieldCheck, ShieldX,
+  ShieldCheck, ShieldX, Send,
 } from "lucide-react";
 import {
   Dialog,
@@ -98,6 +98,18 @@ export default function UserDetail() {
     }
   });
 
+
+    const resendVerification = useMutation({
+      mutationFn: () =>
+        customFetch(`/api/admin/users/${id}/resend-verification`, { method: "POST" }),
+      onSuccess: () => {
+        toast({ title: "Verification email sent", description: "A new verification email has been sent to the user." });
+      },
+      onError: (err: any) => {
+        toast({ title: "Failed to send email", description: err.message, variant: "destructive" });
+      }
+    });
+  
   const cancelDepositMut = useMutation({
     mutationFn: (depositId: number) =>
       customFetch(`/api/admin/deposits/${depositId}/cancel`, { method: "PATCH" }),
@@ -144,6 +156,17 @@ export default function UserDetail() {
               ? <><ShieldX className="mr-2 h-4 w-4" />Revoke Verification</>
               : <><ShieldCheck className="mr-2 h-4 w-4" />Mark as Verified</>}
           </Button>
+          {!user.emailVerified && (
+              <Button
+                variant="outline"
+                onClick={() => resendVerification.mutate()}
+                disabled={resendVerification.isPending}
+                className="border-blue-200 text-blue-600 hover:bg-blue-50"
+              >
+                <Send className="mr-2 h-4 w-4" />
+                {resendVerification.isPending ? "Sending..." : "Resend Verification Email"}
+              </Button>
+            )}
           <Button 
             variant={user.isSuspended ? "default" : "destructive"}
             onClick={() => toggleSuspend.mutate(!user.isSuspended)}

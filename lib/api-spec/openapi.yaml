@@ -759,6 +759,25 @@ paths:
                   message:
                     type: string
 
+    /admin/users/{id}/resend-verification:
+      post:
+        operationId: resendVerificationEmail
+        tags: [admin]
+        summary: Resend verification email to a user
+        parameters:
+          - name: id
+            in: path
+            required: true
+            schema:
+              type: integer
+        responses:
+          "200":
+            description: Verification email sent
+            content:
+              application/json:
+                schema:
+                  $ref: "#/components/schemas/SuccessResponse"
+  
   /admin/plans:
     get:
       operationId: getAdminPlans
