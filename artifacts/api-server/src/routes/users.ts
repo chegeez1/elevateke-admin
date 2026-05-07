@@ -75,6 +75,77 @@ router.patch("/users/pin", authenticate, async (req, res): Promise<void> => {
   res.json({ message: "Withdrawal PIN updated successfully" });
 });
 
+// ─── Change Password ──────────────────────────────────────────────────────────
+router.patch("/users/password", authenticate, async (req, res): Promise<void> => {
+  const { userId } = getUser(req);
+  const { currentPassword, newPassword } = req.body as {
+    currentPassword?: string;
+    newPassword?: string;
+  };
+
+  if (!currentPassword || typeof currentPassword !== "string") {
+    res.status(400).json({ error: "Current password is required." }); return;
+  }
+  if (!newPassword || typeof newPassword !== "string" || newPassword.length < 6) {
+    res.status(400).json({ error: "New password must be at least 6 characters." }); return;
+  }
+  if (currentPassword === newPassword) {
+    res.status(400).json({ error: "New password must be different from your current password." }); return;
+  }
+
+  const [user] = await db.select().from(usersTable).where(eq(usersTable.id, userId));
+  if (!user) { res.status(404).json({ error: "User not found" }); return; }
+
+  const valid = await bcrypt.compare(currentPassword, user.passwordHash);
+  if (!valid) {
+    res.status(401).json({ error: "Current password is incorrect." }); return;
+  }
+
+  const passwordHash = await bcrypt.hash(newPassword, 10);
+  await db.update(usersTable).set({ passwordHash }).where(eq(usersTable.id, userId));
+  res.json({ message: "Password updated successfully." });
+});
+
+// ─── Claim Login Bonus ────────────────────────────────────────────────────────
+router.post("/users/claim-login-bonus", authenticate, async (req, res): Promise<void> => {
+  const { userId } = getUser(req);
+  const [user] = await db.select().from(usersTable).where(eq(usersTable.id, userId));
+  if (!user) { res.status(404).json({ error: "User not found" }); return; }
+
+  // ── Deposit gate ─────────────────────────────────────────────────────────
+  if (Number(user.totalDeposited) === 0) {
+    res.status(403).json({
+      error: "You must make a deposit before claiming the daily login bonus.",
+      requiresDeposit: true,
+    });
+    return;
+  }
+
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  if (user.loginBonusClaimedAt && user.loginBonusClaimedAt >= today) {
+    res.status(400).json({ error: "Login bonus already claimed today" });
+    return;
+  }
+
+  const [bonusSetting] = await db.select().from(platformSettingsTable)
+    .where(eq(platformSettingsTable.key, "login_bonus_amount"));
+  const bonusAmount = Number(bonusSetting?.value ?? 10);
+
+  const newBalance = Number(user.balance) + bonusAmount;
+  const newTotalEarned = Number(user.totalEarned) + bonusAmount;
+
+  await db.update(usersTable).set({
+    balance: newBalance.toString(),
+    totalEarned: newTotalEarned.toString(),
+    loginBonusClaimedAt: new Date(),
+  }).where(eq(usersTable.id, userId));
+
+  const { earningsTable: et } = await import("@workspace/db");
+  await db.insert(et).values({ userId, amount: bonusAmount.toString(), type: "login_bonus", description: "Daily login bonus" });
+
+  res.json({ amount: bonusAmount, newBalance, message: `Login bonus claimed! KSH ${bonusAmount} added to your balance.` });
+});
+
 router.get("/users/referrals", authenticate, async (req, res): Promise<void> => {
   const { userId } = getUser(req);
   const [user] = await db.select().from(usersTable).where(eq(usersTable.id, userId));
@@ -95,7 +166,6 @@ router.get("/users/referrals", authenticate, async (req, res): Promise<void> => 
   const totalEarnings = await db.select({ total: sql<number>`coalesce(sum(${earningsTable.amount}), 0)` })
     .from(earningsTable).where(and(eq(earningsTable.userId, userId), eq(earningsTable.type, "referral")));
 
-  // Only count referrals where the referred user has made at least one deposit
   const activeRefs = refs.filter(r => Number(r.totalDeposited ?? 0) > 0);
   const l1Active = activeRefs.filter(r => r.level === 1);
   const l2Active = activeRefs.filter(r => r.level === 2);
@@ -124,34 +194,8 @@ router.get("/users/login-history", authenticate, async (req, res): Promise<void>
   res.json(history.map(h => ({ id: h.id, ip: h.ip ?? null, createdAt: h.createdAt.toISOString() })));
 });
 
-router.post("/users/claim-login-bonus", authenticate, async (req, res): Promise<void> => {
-  const { userId } = getUser(req);
-  const [user] = await db.select().from(usersTable).where(eq(usersTable.id, userId));
-  if (!user) { res.status(404).json({ error: "User not found" }); return; }
-
-  const today = new Date(); today.setHours(0, 0, 0, 0);
-  if (user.loginBonusClaimedAt && user.loginBonusClaimedAt >= today) {
-    res.status(400).json({ error: "Login bonus already claimed today" });
-    return;
-  }
-
-  const [bonusSetting] = await db.select().from(platformSettingsTable)
-    .where(eq(platformSettingsTable.key, "login_bonus_amount"));
-  const bonusAmount = Number(bonusSetting?.value ?? 10);
-
-  const newBalance = Number(user.balance) + bonusAmount;
-  const newTotalEarned = Number(user.totalEarned) + bonusAmount;
-
-  await db.update(usersTable).set({
-    balance: newBalance.toString(),
-    totalEarned: newTotalEarned.toString(),
-    loginBonusClaimedAt: new Date(),
-  }).where(eq(usersTable.id, userId));
-
-  const { earningsTable: et } = await import("@workspace/db");
-  await db.insert(et).values({ userId, amount: bonusAmount.toString(), type: "login_bonus", description: "Daily login bonus" });
-
-  res.json({ amount: bonusAmount, newBalance, message: `Login bonus claimed! KSH ${bonusAmount} added to your balance.` });
+router.post("/users/claim-login-bonus-old", authenticate, async (req, res): Promise<void> => {
+  res.status(410).json({ error: "Use /users/claim-login-bonus" });
 });
 
 export default router;

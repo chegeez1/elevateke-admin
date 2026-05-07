@@ -6,7 +6,7 @@ import { Progress } from "@/components/ui/progress";
 import { formatNumber } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Link } from "wouter";
-import { Wallet, TrendingUp, Gift, Zap, Star, Users, CheckCircle, Circle, ArrowDownCircle, ArrowUpCircle, Clock, Award, Bell, Rocket, ListChecks } from "lucide-react";
+import { Wallet, TrendingUp, Gift, Zap, Star, Users, CheckCircle, Circle, ArrowDownCircle, ArrowUpCircle, Clock, Award, Bell, Rocket, ListChecks, Lock } from "lucide-react";
 import { toast } from "sonner";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
 
@@ -42,23 +42,42 @@ function OnboardingChecklist({ summary, onClaimBonus, claimingBonus }: {
   onClaimBonus: () => void;
   claimingBonus: boolean;
 }) {
+  const bonusLocked = !summary.hasFirstDeposit;
+  const bonusAction = () => {
+    if (bonusLocked) return (
+      <Link href="/deposit">
+        <Button size="sm" variant="outline" className="text-xs h-7 border-amber-400 text-amber-700 hover:bg-amber-50">
+          Deposit first
+        </Button>
+      </Link>
+    );
+    if (summary.loginBonusAvailable) return (
+      <Button size="sm" variant="outline" onClick={onClaimBonus} disabled={claimingBonus} className="text-xs h-7">
+        {claimingBonus ? "Claiming…" : "Claim Now"}
+      </Button>
+    );
+    return null;
+  };
+
   const steps = [
     {
       id: "login_bonus",
-      label: "Claim your daily login bonus",
-      description: "Collect your free daily reward",
+      label: bonusLocked
+        ? "Claim your daily login bonus (deposit required)"
+        : "Claim your daily login bonus",
+      description: bonusLocked
+        ? "Make a deposit first to unlock the daily bonus"
+        : "Collect your free daily reward",
       done: summary.hasClaimedLoginBonus,
-      action: summary.loginBonusAvailable ? (
-        <Button size="sm" variant="outline" onClick={onClaimBonus} disabled={claimingBonus} className="text-xs h-7">
-          {claimingBonus ? "Claiming…" : "Claim Now"}
-        </Button>
-      ) : null,
+      locked: bonusLocked,
+      action: bonusAction(),
     },
     {
       id: "first_deposit",
       label: "Make your first deposit",
       description: "Fund your account to start earning",
       done: summary.hasFirstDeposit,
+      locked: false,
       action: !summary.hasFirstDeposit ? (
         <Link href="/deposit"><Button size="sm" variant="outline" className="text-xs h-7">Deposit</Button></Link>
       ) : null,
@@ -68,6 +87,7 @@ function OnboardingChecklist({ summary, onClaimBonus, claimingBonus }: {
       label: "Claim your first daily earning",
       description: "Collect returns from your active deposit",
       done: summary.hasFirstEarning,
+      locked: false,
       action: !summary.hasFirstEarning ? (
         <Link href="/earnings"><Button size="sm" variant="outline" className="text-xs h-7">Earnings</Button></Link>
       ) : null,
@@ -77,6 +97,7 @@ function OnboardingChecklist({ summary, onClaimBonus, claimingBonus }: {
       label: "Set a withdrawal PIN",
       description: "Secure your withdrawals with a 4-digit PIN",
       done: summary.hasSetPin,
+      locked: false,
       action: !summary.hasSetPin ? (
         <Link href="/profile"><Button size="sm" variant="outline" className="text-xs h-7">Set PIN</Button></Link>
       ) : null,
@@ -85,7 +106,6 @@ function OnboardingChecklist({ summary, onClaimBonus, claimingBonus }: {
 
   const completedCount = steps.filter(s => s.done).length;
   const allDone = completedCount === steps.length;
-
   if (allDone) return null;
 
   const pct = Math.round((completedCount / steps.length) * 100);
@@ -107,15 +127,25 @@ function OnboardingChecklist({ summary, onClaimBonus, claimingBonus }: {
           <div key={step.id} className="flex items-center gap-3">
             {step.done ? (
               <CheckCircle size={18} className="text-emerald-500 shrink-0" />
+            ) : step.locked ? (
+              <Lock size={18} className="text-amber-400 shrink-0" />
             ) : (
               <Circle size={18} className="text-gray-300 shrink-0" />
             )}
             <div className="flex-1 min-w-0">
-              <p className={`text-sm font-medium leading-tight ${step.done ? "line-through text-gray-400" : "text-gray-800"}`}>
+              <p className={`text-sm font-medium leading-tight ${
+                step.done
+                  ? "line-through text-gray-400"
+                  : step.locked
+                  ? "text-amber-700"
+                  : "text-gray-800"
+              }`}>
                 {step.label}
               </p>
               {!step.done && (
-                <p className="text-xs text-gray-500 mt-0.5">{step.description}</p>
+                <p className={`text-xs mt-0.5 ${step.locked ? "text-amber-600" : "text-gray-500"}`}>
+                  {step.description}
+                </p>
               )}
             </div>
             {!step.done && step.action && (
@@ -143,7 +173,14 @@ export default function Dashboard() {
         queryClient.invalidateQueries({ queryKey: ["/api/activity"] });
       },
       onError: (err) => {
-        toast.error("Failed to claim bonus", { description: err.data?.error || "Unknown error" });
+        if (err.data?.requiresDeposit) {
+          toast.error("Deposit required", {
+            description: "You must make a deposit before claiming the daily login bonus.",
+            action: { label: "Deposit Now", onClick: () => window.location.href = "/deposit" },
+          });
+        } else {
+          toast.error("Failed to claim bonus", { description: err.data?.error || "Unknown error" });
+        }
       }
     });
   };
@@ -160,6 +197,9 @@ export default function Dashboard() {
 
   if (loadingSummary) return <Layout><div className="flex justify-center p-12">Loading dashboard...</div></Layout>;
   if (!summary) return <Layout><div className="text-center p-12 text-destructive">Failed to load dashboard</div></Layout>;
+
+  const bonusReady = summary.loginBonusAvailable && summary.hasFirstDeposit;
+  const bonusLocked = summary.loginBonusAvailable && !summary.hasFirstDeposit;
 
   return (
     <Layout>
@@ -182,6 +222,7 @@ export default function Dashboard() {
           claimingBonus={claimBonusMut.isPending}
         />
 
+        {/* First-time deposit CTA */}
         {summary.balance === 0 && summary.totalDeposited === 0 && (
           <Card className="bg-gradient-to-r from-amber-500 to-orange-500 text-white border-none shadow-lg">
             <CardContent className="p-6 flex flex-col sm:flex-row items-center justify-between gap-4">
@@ -191,7 +232,7 @@ export default function Dashboard() {
                 </div>
                 <div>
                   <h3 className="font-bold text-lg">Make Your First Deposit</h3>
-                  <p className="text-white/80">Fund your account to start earning daily returns from our investment plans.</p>
+                  <p className="text-white/80">Fund your account to start earning daily returns and unlock the daily bonus.</p>
                 </div>
               </div>
               <Link href="/deposit">
@@ -203,7 +244,32 @@ export default function Dashboard() {
           </Card>
         )}
 
-        {summary.loginBonusAvailable && summary.hasSetPin && summary.hasClaimedLoginBonus && summary.hasFirstDeposit && summary.hasFirstEarning && (
+        {/* Bonus locked — user hasn't deposited yet */}
+        {bonusLocked && (
+          <Card className="border-amber-200 bg-amber-50">
+            <CardContent className="p-6 flex flex-col sm:flex-row items-center justify-between gap-4">
+              <div className="flex items-center gap-4">
+                <div className="bg-amber-100 p-3 rounded-full">
+                  <Lock size={24} className="text-amber-600" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-lg text-amber-800">Daily Bonus Locked</h3>
+                  <p className="text-amber-700 text-sm">
+                    Make your first deposit to unlock the daily login bonus and start earning every day.
+                  </p>
+                </div>
+              </div>
+              <Link href="/deposit">
+                <Button className="w-full sm:w-auto bg-amber-500 hover:bg-amber-600 text-white font-semibold border-none">
+                  Deposit to Unlock
+                </Button>
+              </Link>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Bonus available and unlocked */}
+        {bonusReady && (
           <Card className="bg-gradient-to-r from-primary to-emerald-600 text-white border-none shadow-lg">
             <CardContent className="p-6 flex flex-col sm:flex-row items-center justify-between gap-4">
               <div className="flex items-center gap-4">
@@ -236,7 +302,7 @@ export default function Dashboard() {
               </div>
             </CardContent>
           </Card>
-          
+
           <Card>
             <CardContent className="p-6">
               <div className="flex justify-between items-start">
@@ -310,7 +376,7 @@ export default function Dashboard() {
                 </div>
               ) : (
                 <div className="text-center p-8 bg-gray-50 rounded-xl border border-dashed text-gray-500 text-sm">
-                  No activity yet. Claim your daily bonus or start investing!
+                  No activity yet. Make a deposit and claim your daily bonus to get started!
                 </div>
               )}
             </CardContent>

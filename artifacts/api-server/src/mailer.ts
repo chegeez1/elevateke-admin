@@ -166,6 +166,102 @@ export async function sendWelcomeEmail(to: string, name: string): Promise<void> 
   await send({ to, subject, html, text });
 }
 
+export async function sendEmailVerificationEmail(
+  to: string,
+  name: string,
+  token: string,
+): Promise<void> {
+  const verifyUrl = `${SITE_URL}/verify-email?token=${token}`;
+  const subject = 'Verify your ElevateKe email address';
+
+  const html = baseTemplate(
+    heroSection('Verify Your Email', 'One quick step to activate your account') +
+      bodySection(`
+        <p style="margin:0 0 16px;font-size:15px;color:#374151;line-height:1.7;">Hi <strong>${name}</strong>,</p>
+        <p style="margin:0 0 16px;font-size:15px;color:#374151;line-height:1.7;">
+          Thanks for signing up for ElevateKe! Before you can log in and start earning,
+          we need to verify your email address.
+        </p>
+        <p style="margin:0 0 20px;font-size:15px;color:#374151;line-height:1.7;">
+          Click the button below — this link is valid for <strong>24 hours</strong>.
+        </p>
+        ${ctaButton('Verify My Email →', verifyUrl)}
+        ${divider()}
+        <p style="margin:0 0 12px;font-size:13px;color:#6b7280;text-align:center;line-height:1.6;">
+          If the button doesn't work, copy and paste this link into your browser:
+        </p>
+        <p style="margin:0;font-size:12px;color:#16a34a;text-align:center;word-break:break-all;">
+          ${verifyUrl}
+        </p>
+        ${divider()}
+        <p style="margin:0;font-size:12px;color:#9ca3af;text-align:center;line-height:1.6;">
+          If you didn't create an ElevateKe account, you can safely ignore this email.
+        </p>
+      `),
+    'Verify your ElevateKe email address to activate your account.',
+  );
+
+  const text = `Hi ${name},
+
+Please verify your email address to activate your ElevateKe account.
+
+Click this link (valid for 24 hours):
+${verifyUrl}
+
+If you didn't create an account, you can ignore this email.
+
+— The ElevateKe Team`;
+  await send({ to, subject, html, text });
+}
+
+export async function sendPasswordResetEmail(
+  to: string,
+  name: string,
+  token: string,
+): Promise<void> {
+  const resetUrl = `${SITE_URL}/reset-password?token=${token}`;
+  const subject = 'Reset your ElevateKe password';
+
+  const html = baseTemplate(
+    heroSection('Reset Your Password', 'We received a request to reset your password', '#d97706') +
+      bodySection(`
+        <p style="margin:0 0 16px;font-size:15px;color:#374151;line-height:1.7;">Hi <strong>${name}</strong>,</p>
+        <p style="margin:0 0 16px;font-size:15px;color:#374151;line-height:1.7;">
+          We received a request to reset the password for your ElevateKe account.
+          Click the button below to choose a new password.
+        </p>
+        <p style="margin:0 0 20px;font-size:15px;color:#374151;line-height:1.7;">
+          This link is valid for <strong>1 hour</strong>.
+        </p>
+        ${ctaButton('Reset My Password →', resetUrl)}
+        ${divider()}
+        <p style="margin:0 0 12px;font-size:13px;color:#6b7280;text-align:center;line-height:1.6;">
+          If the button doesn't work, copy and paste this link into your browser:
+        </p>
+        <p style="margin:0;font-size:12px;color:#16a34a;text-align:center;word-break:break-all;">
+          ${resetUrl}
+        </p>
+        ${divider()}
+        <p style="margin:0;font-size:12px;color:#9ca3af;text-align:center;line-height:1.6;">
+          If you didn't request a password reset, you can safely ignore this email.
+        </p>
+      `),
+    'Reset your ElevateKe password — link valid for 1 hour.',
+  );
+
+  const text = `Hi ${name},
+
+We received a request to reset your ElevateKe password.
+
+Click this link to reset it (valid for 1 hour):
+${resetUrl}
+
+If you didn't request this, ignore this email — your password won't change.
+
+— The ElevateKe Team`;
+  await send({ to, subject, html, text });
+}
+
 export async function sendDepositConfirmationEmail(params: {
   to: string;
   name: string;

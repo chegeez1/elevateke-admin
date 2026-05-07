@@ -19,6 +19,16 @@ export const usersTable = pgTable("users", {
   language: text("language").notNull().default("en"),
   isAdmin: boolean("is_admin").notNull().default(false),
   isSuspended: boolean("is_suspended").notNull().default(false),
+
+  // ── Email verification ───────────────────────────────────────────────────
+  emailVerified: boolean("email_verified").notNull().default(false),
+  emailVerificationToken: text("email_verification_token"),
+  emailVerificationExpires: timestamp("email_verification_expires", { withTimezone: true }),
+
+  // ── Password reset ───────────────────────────────────────────────────────
+  passwordResetToken: text("password_reset_token"),
+  passwordResetExpires: timestamp("password_reset_expires", { withTimezone: true }),
+
   loginBonusClaimedAt: timestamp("login_bonus_claimed_at", { withTimezone: true }),
   depositReminderSentAt: timestamp("deposit_reminder_sent_at", { withTimezone: true }),
   depositReminder2SentAt: timestamp("deposit_reminder2_sent_at", { withTimezone: true }),

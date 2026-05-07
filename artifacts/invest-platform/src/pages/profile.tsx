@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
-import { User, Award, History, KeyRound, ShieldCheck } from "lucide-react";
+import { User, Award, History, KeyRound, ShieldCheck, Lock } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { formatNumber } from "@/lib/utils";
@@ -28,6 +28,11 @@ export default function Profile() {
   const [newPin, setNewPin] = useState("");
   const [confirmPin, setConfirmPin] = useState("");
   const [pinPending, setPinPending] = useState(false);
+
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [passwordPending, setPasswordPending] = useState(false);
 
   useEffect(() => {
     if (profile) {
@@ -81,6 +86,34 @@ export default function Profile() {
     }
   };
 
+  const handlePasswordChange = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (newPassword !== confirmPassword) {
+      toast.error("New passwords do not match");
+      return;
+    }
+    if (newPassword.length < 6) {
+      toast.error("New password must be at least 6 characters");
+      return;
+    }
+    setPasswordPending(true);
+    try {
+      await customFetch("/api/users/password", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ currentPassword, newPassword }),
+      });
+      toast.success("Password updated successfully!");
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+    } catch (err: any) {
+      toast.error(err?.data?.error || "Failed to update password");
+    } finally {
+      setPasswordPending(false);
+    }
+  };
+
   const getVipColor = (level: string = "") => {
     switch (level.toLowerCase()) {
       case "bronze": return "bg-gray-400";
@@ -103,6 +136,8 @@ export default function Profile() {
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2 space-y-6">
+
+            {/* Personal Details */}
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2"><User size={20}/> Personal Details</CardTitle>
@@ -147,6 +182,73 @@ export default function Profile() {
               </CardContent>
             </Card>
 
+            {/* Change Password */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Lock size={20} />
+                  Change Password
+                </CardTitle>
+                <CardDescription>
+                  Update your login password. You'll need to enter your current password to confirm.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <form onSubmit={handlePasswordChange} className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="currentPassword">Current Password</Label>
+                    <Input
+                      id="currentPassword"
+                      type="password"
+                      value={currentPassword}
+                      onChange={e => setCurrentPassword(e.target.value)}
+                      placeholder="Enter your current password"
+                      required
+                    />
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="newPassword">New Password</Label>
+                      <Input
+                        id="newPassword"
+                        type="password"
+                        value={newPassword}
+                        onChange={e => setNewPassword(e.target.value)}
+                        placeholder="Min. 6 characters"
+                        minLength={6}
+                        required
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="confirmPassword">Confirm New Password</Label>
+                      <Input
+                        id="confirmPassword"
+                        type="password"
+                        value={confirmPassword}
+                        onChange={e => setConfirmPassword(e.target.value)}
+                        placeholder="Repeat new password"
+                        required
+                      />
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between pt-2">
+                    <p className="text-xs text-gray-500">
+                      Choose a strong password you haven't used before.
+                    </p>
+                    <Button
+                      type="submit"
+                      disabled={passwordPending}
+                      variant="outline"
+                      className="border-primary text-primary hover:bg-primary hover:text-white"
+                    >
+                      {passwordPending ? "Updating..." : "Update Password"}
+                    </Button>
+                  </div>
+                </form>
+              </CardContent>
+            </Card>
+
+            {/* Withdrawal PIN */}
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -220,6 +322,7 @@ export default function Profile() {
               </CardContent>
             </Card>
 
+            {/* Login History */}
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2"><History size={20}/> Login History</CardTitle>
@@ -241,6 +344,7 @@ export default function Profile() {
             </Card>
           </div>
 
+          {/* Sidebar */}
           <div className="space-y-6">
             <Card className="text-center overflow-hidden">
               <div className={`h-24 ${getVipColor(profile?.vipLevel)} w-full`}></div>
@@ -250,7 +354,7 @@ export default function Profile() {
                 </div>
                 <h3 className="font-bold text-xl mt-4">{profile?.name}</h3>
                 <Badge className={`mt-2 ${getVipColor(profile?.vipLevel)} border-none`}>VIP {profile?.vipLevel}</Badge>
-                
+
                 <div className="mt-6 text-sm text-gray-600 space-y-2 text-left">
                   <div className="flex justify-between pb-2 border-b">
                     <span>Member Since</span>
