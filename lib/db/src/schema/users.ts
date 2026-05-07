@@ -21,7 +21,8 @@ export const usersTable = pgTable("users", {
   isSuspended: boolean("is_suspended").notNull().default(false),
 
   // ── Email verification ───────────────────────────────────────────────────
-  emailVerified: boolean("email_verified").notNull().default(false),
+  // DB column is "is_email_verified" (kept from previous schema to avoid rename)
+  emailVerified: boolean("is_email_verified").notNull().default(false),
   emailVerificationToken: text("email_verification_token"),
   emailVerificationExpires: timestamp("email_verification_expires", { withTimezone: true }),
 
