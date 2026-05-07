@@ -538,7 +538,20 @@ router.post("/admin/users/:id/adjust-balance", async (req, res): Promise<void> =
   res.json({ success: true, newBalance, message: "Balance adjusted" });
 });
 
-// ── Platform Settings ──────────────────────────────────────────────────
+
+  // ── Delete user ──────────────────────────────────────────────────────────────
+  router.delete("/admin/users/:id", async (req, res): Promise<void> => {
+    const id = parseInt(Array.isArray(req.params.id) ? req.params.id[0] : req.params.id, 10);
+    if (isNaN(id)) { res.status(400).json({ error: "Invalid user ID" }); return; }
+    const [user] = await db.select().from(usersTable).where(eq(usersTable.id, id));
+    if (!user) { res.status(404).json({ error: "User not found" }); return; }
+    if (user.isAdmin) { res.status(403).json({ error: "Cannot delete admin accounts" }); return; }
+    await db.delete(usersTable).where(eq(usersTable.id, id));
+    req.log.info({ userId: id }, "Admin deleted user account");
+    res.json({ success: true, message: "User account deleted" });
+  });
+
+  // ── Platform Settings ──────────────────────────────────────────────────
 router.get("/admin/settings", async (_req, res): Promise<void> => {
   const rows = await db.select().from(platformSettingsTable).orderBy(platformSettingsTable.key);
   const map: Record<string, { value: string; label: string; description: string | null }> = {};
