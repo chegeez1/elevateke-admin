@@ -6,9 +6,9 @@ import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Search, Bell } from "lucide-react";
+import { Search, Bell, ShieldCheck, ShieldX } from "lucide-react";
 
-type FilterMode = "all" | "reminder-no-deposit";
+type FilterMode = "all" | "reminder-no-deposit" | "unverified";
 
 export default function Users() {
   const [search, setSearch] = useState("");
@@ -30,6 +30,9 @@ export default function Users() {
     if (filter === "reminder-no-deposit") {
       return u.depositReminderSentAt !== null && u.totalDeposited === 0;
     }
+    if (filter === "unverified") {
+      return !u.emailVerified;
+    }
 
     return true;
   });
@@ -37,6 +40,8 @@ export default function Users() {
   const reminderNoDepositCount = users.filter(
     (u: any) => u.depositReminderSentAt !== null && u.totalDeposited === 0,
   ).length;
+
+  const unverifiedCount = users.filter((u: any) => !u.emailVerified).length;
 
   return (
     <div className="space-y-6">
@@ -57,13 +62,27 @@ export default function Users() {
           />
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <Button
             size="sm"
             variant={filter === "all" ? "default" : "outline"}
             onClick={() => setFilter("all")}
           >
             All users
+          </Button>
+          <Button
+            size="sm"
+            variant={filter === "unverified" ? "default" : "outline"}
+            onClick={() => setFilter("unverified")}
+            className="gap-1.5"
+          >
+            <ShieldX className="h-3.5 w-3.5" />
+            Unverified email
+            {unverifiedCount > 0 && (
+              <span className="ml-1 rounded-full bg-rose-100 text-rose-700 px-1.5 py-0.5 text-xs font-semibold leading-none">
+                {unverifiedCount}
+              </span>
+            )}
           </Button>
           <Button
             size="sm"
@@ -90,6 +109,7 @@ export default function Users() {
               <TableHead>Contact</TableHead>
               <TableHead>VIP Level</TableHead>
               <TableHead className="text-right">Balance</TableHead>
+              <TableHead>Email</TableHead>
               <TableHead>Reminder</TableHead>
               <TableHead>Status</TableHead>
             </TableRow>
@@ -97,11 +117,11 @@ export default function Users() {
           <TableBody>
             {isLoading ? (
               <TableRow>
-                <TableCell colSpan={6} className="h-24 text-center">Loading users...</TableCell>
+                <TableCell colSpan={7} className="h-24 text-center">Loading users...</TableCell>
               </TableRow>
             ) : filteredUsers.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} className="h-24 text-center text-muted-foreground">No users found.</TableCell>
+                <TableCell colSpan={7} className="h-24 text-center text-muted-foreground">No users found.</TableCell>
               </TableRow>
             ) : (
               filteredUsers.map((user: any) => (
@@ -120,6 +140,17 @@ export default function Users() {
                     </TableCell>
                     <TableCell className="text-right font-medium">
                       KSH {user.balance?.toLocaleString()}
+                    </TableCell>
+                    <TableCell>
+                      {user.emailVerified ? (
+                        <Badge variant="outline" className="text-emerald-600 bg-emerald-50 border-emerald-200 gap-1 text-xs">
+                          <ShieldCheck className="h-3 w-3" /> Verified
+                        </Badge>
+                      ) : (
+                        <Badge variant="outline" className="text-rose-600 bg-rose-50 border-rose-200 gap-1 text-xs">
+                          <ShieldX className="h-3 w-3" /> Unverified
+                        </Badge>
+                      )}
                     </TableCell>
                     <TableCell>
                       {user.depositReminderSentAt ? (

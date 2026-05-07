@@ -19,6 +19,7 @@ function formatUser(u: typeof usersTable.$inferSelect) {
     balance: Number(u.balance), totalEarned: Number(u.totalEarned),
     totalDeposited: Number(u.totalDeposited), vipLevel: u.vipLevel,
     referralCode: u.referralCode, isAdmin: u.isAdmin, isSuspended: u.isSuspended,
+    emailVerified: u.emailVerified ?? false,
     createdAt: u.createdAt.toISOString(),
     depositReminderSentAt: u.depositReminderSentAt?.toISOString() ?? null,
   };
@@ -99,6 +100,26 @@ router.post("/admin/users/:id/unsuspend", async (req, res): Promise<void> => {
   const id = parseInt(Array.isArray(req.params.id) ? req.params.id[0] : req.params.id, 10);
   await db.update(usersTable).set({ isSuspended: false }).where(eq(usersTable.id, id));
   res.json({ success: true, message: "User unsuspended" });
+});
+
+router.post("/admin/users/:id/verify-email", async (req, res): Promise<void> => {
+  const id = parseInt(Array.isArray(req.params.id) ? req.params.id[0] : req.params.id, 10);
+  const [user] = await db.select().from(usersTable).where(eq(usersTable.id, id));
+  if (!user) { res.status(404).json({ error: "User not found" }); return; }
+  await db.update(usersTable).set({
+    emailVerified: true,
+    emailVerificationToken: null,
+    emailVerificationExpires: null,
+  }).where(eq(usersTable.id, id));
+  res.json({ success: true, message: "Email verified" });
+});
+
+router.post("/admin/users/:id/unverify-email", async (req, res): Promise<void> => {
+  const id = parseInt(Array.isArray(req.params.id) ? req.params.id[0] : req.params.id, 10);
+  const [user] = await db.select().from(usersTable).where(eq(usersTable.id, id));
+  if (!user) { res.status(404).json({ error: "User not found" }); return; }
+  await db.update(usersTable).set({ emailVerified: false }).where(eq(usersTable.id, id));
+  res.json({ success: true, message: "Email verification revoked" });
 });
 
 router.get("/admin/plans", async (_req, res): Promise<void> => {

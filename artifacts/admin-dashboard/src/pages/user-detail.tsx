@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
   ArrowLeft, Ban, CheckCircle, Wallet, AlertTriangle, TrendingUp, X, Clock, Bell,
+  ShieldCheck, ShieldX,
 } from "lucide-react";
 import {
   Dialog,
@@ -79,7 +80,21 @@ export default function UserDetail() {
       customFetch(`/api/admin/users/${id}/${suspend ? 'suspend' : 'unsuspend'}`, { method: "POST" }),
     onSuccess: (_, suspend) => {
       queryClient.invalidateQueries({ queryKey: ["admin-user", id] });
+      queryClient.invalidateQueries({ queryKey: ["admin-users"] });
       toast({ title: `User ${suspend ? 'suspended' : 'unsuspended'}` });
+    }
+  });
+
+  const toggleVerify = useMutation({
+    mutationFn: (verify: boolean) =>
+      customFetch(`/api/admin/users/${id}/${verify ? "verify-email" : "unverify-email"}`, { method: "POST" }),
+    onSuccess: (_, verify) => {
+      queryClient.invalidateQueries({ queryKey: ["admin-user", id] });
+      queryClient.invalidateQueries({ queryKey: ["admin-users"] });
+      toast({ title: verify ? "Email marked as verified" : "Email verification revoked" });
+    },
+    onError: (err: any) => {
+      toast({ title: "Action failed", description: err.message, variant: "destructive" });
     }
   });
 
@@ -116,7 +131,19 @@ export default function UserDetail() {
           <h1 className="text-3xl font-bold tracking-tight">{user.name}</h1>
           <p className="text-muted-foreground">{user.email} • {user.phone}</p>
         </div>
-        <div className="ml-auto flex gap-2">
+        <div className="ml-auto flex gap-2 flex-wrap justify-end">
+          <Button
+            variant={user.emailVerified ? "outline" : "default"}
+            onClick={() => toggleVerify.mutate(!user.emailVerified)}
+            disabled={toggleVerify.isPending}
+            className={user.emailVerified
+              ? "border-rose-200 text-rose-600 hover:bg-rose-50"
+              : "bg-emerald-600 hover:bg-emerald-700 text-white"}
+          >
+            {user.emailVerified
+              ? <><ShieldX className="mr-2 h-4 w-4" />Revoke Verification</>
+              : <><ShieldCheck className="mr-2 h-4 w-4" />Mark as Verified</>}
+          </Button>
           <Button 
             variant={user.isSuspended ? "default" : "destructive"}
             onClick={() => toggleSuspend.mutate(!user.isSuspended)}
@@ -135,6 +162,17 @@ export default function UserDetail() {
           <span>
             This user has <strong>{pendingDeposits.length} pending payment{pendingDeposits.length !== 1 ? "s" : ""}</strong> awaiting M-Pesa confirmation.
             You can cancel them below if payment was not received.
+          </span>
+        </div>
+      )}
+
+      {/* Unverified email alert */}
+      {!user.emailVerified && (
+        <div className="flex items-start gap-3 bg-rose-50 border border-rose-200 text-rose-800 rounded-lg px-4 py-3 text-sm">
+          <ShieldX className="h-4 w-4 mt-0.5 shrink-0" />
+          <span>
+            This user's email is <strong>not verified</strong>. They cannot log in until their email is verified.
+            You can manually verify it using the button above.
           </span>
         </div>
       )}
@@ -162,6 +200,20 @@ export default function UserDetail() {
               <div>
                 <div className="text-sm font-medium text-muted-foreground">VIP Level</div>
                 <div className="text-xl font-semibold font-mono">{user.vipLevel}</div>
+              </div>
+              <div className="col-span-2">
+                <div className="text-sm font-medium text-muted-foreground">Email Verification</div>
+                <div className="mt-1">
+                  {user.emailVerified ? (
+                    <Badge variant="outline" className="text-emerald-600 bg-emerald-50 border-emerald-200 gap-1">
+                      <ShieldCheck className="h-3 w-3" /> Verified
+                    </Badge>
+                  ) : (
+                    <Badge variant="outline" className="text-rose-600 bg-rose-50 border-rose-200 gap-1">
+                      <ShieldX className="h-3 w-3" /> Not verified
+                    </Badge>
+                  )}
+                </div>
               </div>
               <div className="col-span-2">
                 <div className="text-sm font-medium text-muted-foreground">Deposit Reminder</div>
@@ -238,7 +290,6 @@ export default function UserDetail() {
               <div className="text-sm text-muted-foreground text-center py-6">No deposits found.</div>
             ) : (
               <div className="space-y-3">
-                {/* Summary line */}
                 <div className="flex gap-4 text-sm text-muted-foreground border-b pb-3">
                   <span><strong className="text-foreground">{activeDeposits.length}</strong> active</span>
                   <span><strong className="text-foreground">{pendingDeposits.length}</strong> pending</span>
