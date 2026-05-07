@@ -1,22 +1,50 @@
 import { useState } from "react";
 import { Link } from "wouter";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { customFetch } from "@workspace/api-client-react";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Search, Bell, ShieldCheck, ShieldX } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { Search, Bell, ShieldCheck, ShieldX, CheckCheck } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 type FilterMode = "all" | "reminder-no-deposit" | "unverified";
 
 export default function Users() {
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<FilterMode>("all");
+  const [bulkConfirmOpen, setBulkConfirmOpen] = useState(false);
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
 
   const { data: users = [], isLoading } = useQuery({
     queryKey: ["admin-users"],
     queryFn: () => customFetch<any[]>("/api/admin/users"),
+  });
+
+  const bulkVerify = useMutation({
+    mutationFn: () =>
+      customFetch<{ success: boolean; count: number; message: string }>(
+        "/api/admin/users/bulk-verify-emails",
+        { method: "POST" },
+      ),
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["admin-users"] });
+      setBulkConfirmOpen(false);
+      toast({ title: "Bulk verification complete", description: data.message });
+    },
+    onError: (err: any) => {
+      toast({ title: "Bulk verify failed", description: err.message, variant: "destructive" });
+    },
   });
 
   const filteredUsers = users.filter((u: any) => {
@@ -45,9 +73,24 @@ export default function Users() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Users</h1>
-        <p className="text-muted-foreground">Manage platform users, view details, and adjust balances.</p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Users</h1>
+          <p className="text-muted-foreground">Manage platform users, view details, and adjust balances.</p>
+        </div>
+        {unverifiedCount > 0 && (
+          <Button
+            variant="outline"
+            className="shrink-0 gap-2 border-emerald-200 text-emerald-700 hover:bg-emerald-50"
+            onClick={() => setBulkConfirmOpen(true)}
+          >
+            <CheckCheck className="h-4 w-4" />
+            Verify All Unverified
+            <span className="ml-1 rounded-full bg-emerald-100 text-emerald-700 px-1.5 py-0.5 text-xs font-semibold leading-none">
+              {unverifiedCount}
+            </span>
+          </Button>
+        )}
       </div>
 
       <div className="flex flex-wrap items-center gap-3">
@@ -180,6 +223,36 @@ export default function Users() {
           </TableBody>
         </Table>
       </div>
+
+      <Dialog open={bulkConfirmOpen} onOpenChange={setBulkConfirmOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <CheckCheck className="h-5 w-5 text-emerald-600" />
+              Verify All Unverified Users
+            </DialogTitle>
+            <DialogDescription>
+              This will mark <strong>{unverifiedCount} user{unverifiedCount !== 1 ? "s" : ""}</strong> as
+              email-verified instantly, allowing them to log in without clicking a verification link.
+              <br /><br />
+              This is useful for clearing a backlog of registrations or for accounts you've manually confirmed.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setBulkConfirmOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              className="bg-emerald-600 hover:bg-emerald-700 text-white"
+              onClick={() => bulkVerify.mutate()}
+              disabled={bulkVerify.isPending}
+            >
+              <CheckCheck className="mr-2 h-4 w-4" />
+              {bulkVerify.isPending ? "Verifying..." : `Verify ${unverifiedCount} User${unverifiedCount !== 1 ? "s" : ""}`}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -558,6 +558,15 @@ router.patch("/admin/settings", async (req, res): Promise<void> => {
   res.json({ success: true, message: "Settings updated" });
 });
 
+// ── Bulk email verification ───────────────────────────────────────────────
+router.post("/admin/users/bulk-verify-emails", async (_req, res): Promise<void> => {
+  const result = await db.update(usersTable)
+    .set({ emailVerified: true, emailVerificationToken: null, emailVerificationExpires: null })
+    .where(eq(usersTable.emailVerified, false))
+    .returning({ id: usersTable.id });
+  res.json({ success: true, count: result.length, message: `${result.length} user${result.length !== 1 ? 's' : ''} verified` });
+});
+
 // Public endpoint so invest-platform can read min amounts etc.
 router.get("/settings", async (_req, res): Promise<void> => {
   const rows = await db.select().from(platformSettingsTable);
