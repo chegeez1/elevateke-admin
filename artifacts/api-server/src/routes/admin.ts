@@ -540,7 +540,7 @@ router.post("/admin/users/:id/adjust-balance", async (req, res): Promise<void> =
 
 
   // ── Delete user ──────────────────────────────────────────────────────────────
-  router.delete("/admin/users/:id", async (req, res): Promise<void> => {
+  router.delete("/admin/users/:id/delete", async (req, res): Promise<void> => {
     const id = parseInt(Array.isArray(req.params.id) ? req.params.id[0] : req.params.id, 10);
     if (isNaN(id)) { res.status(400).json({ error: "Invalid user ID" }); return; }
     const [user] = await db.select().from(usersTable).where(eq(usersTable.id, id));
