@@ -48,11 +48,11 @@ paths:
               $ref: "#/components/schemas/RegisterBody"
       responses:
         "201":
-          description: User created
+          description: User created — verification email sent
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/AuthResponse"
+                $ref: "#/components/schemas/MessageResponse"
         "400":
           description: Bad request
           content:
@@ -142,6 +142,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+
   /auth/verify-email:
     post:
       operationId: verifyEmail
@@ -171,6 +172,92 @@ paths:
                 $ref: "#/components/schemas/AuthResponse"
         "400":
           description: Invalid or expired OTP
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /auth/resend-verification:
+    post:
+      operationId: resendVerification
+      tags: [auth]
+      summary: Resend email verification link
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email]
+              properties:
+                email:
+                  type: string
+                  format: email
+      responses:
+        "200":
+          description: Verification email sent
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+        "400":
+          description: Already verified
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /auth/forgot-password:
+    post:
+      operationId: forgotPassword
+      tags: [auth]
+      summary: Request a password reset email
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email]
+              properties:
+                email:
+                  type: string
+                  format: email
+      responses:
+        "200":
+          description: Reset email sent
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+
+  /auth/reset-password:
+    post:
+      operationId: resetPassword
+      tags: [auth]
+      summary: Reset password using token from email link
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [token, password]
+              properties:
+                token:
+                  type: string
+                password:
+                  type: string
+                  minLength: 6
+      responses:
+        "200":
+          description: Password updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+        "400":
+          description: Invalid token or weak password
           content:
             application/json:
               schema:
@@ -248,6 +335,39 @@ paths:
                 $ref: "#/components/schemas/BonusResult"
         "400":
           description: Already claimed today
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+
+  /users/password:
+    patch:
+      operationId: changePassword
+      tags: [users]
+      summary: Change account password (authenticated)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [currentPassword, newPassword]
+              properties:
+                currentPassword:
+                  type: string
+                newPassword:
+                  type: string
+                  minLength: 6
+      responses:
+        "200":
+          description: Password updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+        "401":
+          description: Current password incorrect
           content:
             application/json:
               schema:
@@ -721,78 +841,6 @@ paths:
               schema:
                 $ref: "#/components/schemas/SuccessResponse"
 
-
-  /admin/users/{id}/verify-email:
-    post:
-      operationId: adminVerifyUserEmail
-      tags: [admin]
-      summary: Manually mark a user's email as verified
-      parameters:
-        - in: path
-          name: id
-          required: true
-          schema:
-            type: integer
-      responses:
-        "200":
-          description: Email marked as verified
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/MessageResponse"
-        "404":
-          description: User not found
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-
-  /admin/users/{id}/unverify-email:
-    post:
-      operationId: adminUnverifyUserEmail
-      tags: [admin]
-      summary: Revoke email verification for a user
-      parameters:
-        - in: path
-          name: id
-          required: true
-          schema:
-            type: integer
-      responses:
-        "200":
-          description: Email verification revoked
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/MessageResponse"
-        "404":
-          description: User not found
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-
-  /admin/users/bulk-verify-emails:
-    post:
-      operationId: adminBulkVerifyEmails
-      tags: [admin]
-      summary: Mark all unverified users' emails as verified in one action
-      responses:
-        "200":
-          description: Bulk verification complete
-          content:
-            application/json:
-              schema:
-                type: object
-                required: [success, count, message]
-                properties:
-                  success:
-                    type: boolean
-                  count:
-                    type: integer
-                  message:
-                    type: string
-
   /admin/users/{id}/resend-verification:
     post:
       operationId: resendVerificationEmail
@@ -811,33 +859,6 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/SuccessResponse"
-
-  /admin/users/{id}/delete:
-    delete:
-      operationId: deleteUser
-      tags: [admin]
-      summary: Permanently delete a user account
-      security:
-        - bearerAuth: []
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: integer
-      responses:
-        "200":
-          description: User deleted
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/SuccessResponse"
-        "404":
-          description: User not found
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
 
   /admin/plans:
     get:
@@ -1191,6 +1212,13 @@ components:
           type: string
       required: [status]
 
+    MessageResponse:
+      type: object
+      required: [message]
+      properties:
+        message:
+          type: string
+
     ErrorResponse:
       type: object
       properties:
@@ -1523,7 +1551,7 @@ components:
           type: string
         reference:
           type: string
-      required: [deposit, paystackAuthUrl, reference]
+      required: [deposit, reference]
 
     VerifyDepositBody:
       type: object
