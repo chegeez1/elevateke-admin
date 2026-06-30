@@ -233,6 +233,7 @@ export const GetDashboardSummaryResponse = zod.object({
 export const GetPlansResponseItem = zod.object({
   id: zod.number(),
   name: zod.string(),
+  fixedAmount: zod.number().nullish(),
   minAmount: zod.number(),
   maxAmount: zod.number().nullish(),
   dailyRate: zod.number(),
@@ -255,6 +256,7 @@ export const GetPlanParams = zod.object({
 export const GetPlanResponse = zod.object({
   id: zod.number(),
   name: zod.string(),
+  fixedAmount: zod.number().nullish(),
   minAmount: zod.number(),
   maxAmount: zod.number().nullish(),
   dailyRate: zod.number(),
@@ -673,6 +675,7 @@ export const GetAdminPlansResponse = zod.array(GetAdminPlansResponseItem);
  */
 export const CreatePlanBody = zod.object({
   name: zod.string(),
+  fixedAmount: zod.number().nullish(),
   minAmount: zod.number(),
   maxAmount: zod.number().nullish(),
   dailyRate: zod.number(),
@@ -691,6 +694,7 @@ export const UpdatePlanParams = zod.object({
 
 export const UpdatePlanBody = zod.object({
   name: zod.string(),
+  fixedAmount: zod.number().nullish(),
   minAmount: zod.number(),
   maxAmount: zod.number().nullish(),
   dailyRate: zod.number(),

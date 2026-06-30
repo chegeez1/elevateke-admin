@@ -23,6 +23,12 @@ const GROUPS = [
     keys: ["login_bonus_amount", "signup_bonus_amount"],
   },
   {
+    title: "Deposit Limits",
+    icon: ArrowDownCircle,
+    color: "text-green-600",
+    keys: ["min_deposit_amount"],
+  },
+  {
     title: "Withdrawal Limits",
     icon: ArrowUpCircle,
     color: "text-red-600",
@@ -158,6 +164,7 @@ export default function SettingsPage() {
               </CardTitle>
               <CardDescription>
                 {group.title === "Daily Login Bonus" && "Amounts credited to users as bonuses."}
+                {group.title === "Deposit Limits" && "Platform-wide minimum deposit amount regardless of plan."}
                 {group.title === "Withdrawal Limits" && "Control the minimum and maximum per withdrawal request."}
                 {group.title === "Deposit Referral Bonus" && "One-time bonus paid to referrers (L1, L2, L3) when a referred user activates a deposit."}
                 {group.title === "Daily Earnings Referral" && "Percentage of a referee's daily earnings paid to their L1, L2, and L3 referrers every time the referee claims daily returns."}

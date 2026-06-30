@@ -141,26 +141,44 @@ router.post("/admin/users/:id/unverify-email", async (req, res): Promise<void> =
 
 router.get("/admin/plans", async (_req, res): Promise<void> => {
   const plans = await db.select().from(depositPlansTable).orderBy(depositPlansTable.id);
-  res.json(plans.map(p => ({
-    id: p.id, name: p.name, minAmount: Number(p.minAmount),
+  const formatAdminPlan = (p: typeof depositPlansTable.$inferSelect) => ({
+    id: p.id, name: p.name,
+    fixedAmount: p.fixedAmount ? Number(p.fixedAmount) : null,
+    minAmount: Number(p.minAmount),
     maxAmount: p.maxAmount ? Number(p.maxAmount) : null,
-    dailyRate: Number(p.dailyRate), durationDays: p.durationDays,
-    bonusPercent: Number(p.bonusPercent), isActive: p.isActive,
-    description: p.description ?? null, createdAt: p.createdAt.toISOString(),
-  })));
+    dailyRate: Number(p.dailyRate),
+    dailyEarning: (p.fixedAmount ? Number(p.fixedAmount) : Number(p.minAmount)) * Number(p.dailyRate),
+    durationDays: p.durationDays,
+    bonusPercent: Number(p.bonusPercent),
+    isActive: p.isActive,
+    description: p.description ?? null,
+    createdAt: p.createdAt.toISOString(),
+  });
+  res.json(plans.map(formatAdminPlan));
 });
 
 router.post("/admin/plans", async (req, res): Promise<void> => {
   const parsed = CreatePlanBody.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
   const [plan] = await db.insert(depositPlansTable).values({
-    ...parsed.data,
+    name: parsed.data.name,
+    fixedAmount: parsed.data.fixedAmount != null ? parsed.data.fixedAmount.toString() : null,
     minAmount: parsed.data.minAmount.toString(),
     maxAmount: parsed.data.maxAmount?.toString(),
     dailyRate: parsed.data.dailyRate.toString(),
     bonusPercent: (parsed.data.bonusPercent ?? 0).toString(),
+    durationDays: parsed.data.durationDays,
+    isActive: parsed.data.isActive,
+    description: parsed.data.description ?? null,
   }).returning();
-  res.status(201).json({ ...plan, minAmount: Number(plan.minAmount), maxAmount: plan.maxAmount ? Number(plan.maxAmount) : null, dailyRate: Number(plan.dailyRate), bonusPercent: Number(plan.bonusPercent) });
+  res.status(201).json({
+    ...plan,
+    fixedAmount: plan.fixedAmount ? Number(plan.fixedAmount) : null,
+    minAmount: Number(plan.minAmount),
+    maxAmount: plan.maxAmount ? Number(plan.maxAmount) : null,
+    dailyRate: Number(plan.dailyRate),
+    bonusPercent: Number(plan.bonusPercent),
+  });
 });
 
 router.patch("/admin/plans/:id", async (req, res): Promise<void> => {
@@ -168,14 +186,25 @@ router.patch("/admin/plans/:id", async (req, res): Promise<void> => {
   const parsed = CreatePlanBody.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
   const [plan] = await db.update(depositPlansTable).set({
-    ...parsed.data,
+    name: parsed.data.name,
+    fixedAmount: parsed.data.fixedAmount != null ? parsed.data.fixedAmount.toString() : null,
     minAmount: parsed.data.minAmount.toString(),
     maxAmount: parsed.data.maxAmount?.toString(),
     dailyRate: parsed.data.dailyRate.toString(),
     bonusPercent: (parsed.data.bonusPercent ?? 0).toString(),
+    durationDays: parsed.data.durationDays,
+    isActive: parsed.data.isActive,
+    description: parsed.data.description ?? null,
   }).where(eq(depositPlansTable.id, id)).returning();
   if (!plan) { res.status(404).json({ error: "Plan not found" }); return; }
-  res.json({ ...plan, minAmount: Number(plan.minAmount), maxAmount: plan.maxAmount ? Number(plan.maxAmount) : null, dailyRate: Number(plan.dailyRate), bonusPercent: Number(plan.bonusPercent) });
+  res.json({
+    ...plan,
+    fixedAmount: plan.fixedAmount ? Number(plan.fixedAmount) : null,
+    minAmount: Number(plan.minAmount),
+    maxAmount: plan.maxAmount ? Number(plan.maxAmount) : null,
+    dailyRate: Number(plan.dailyRate),
+    bonusPercent: Number(plan.bonusPercent),
+  });
 });
 
 router.delete("/admin/plans/:id", async (req, res): Promise<void> => {

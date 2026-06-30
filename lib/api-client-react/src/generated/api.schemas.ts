@@ -155,6 +155,8 @@ export interface DashboardSummary {
 export interface DepositPlan {
   id: number;
   name: string;
+  /** @nullable */
+  fixedAmount?: number | null;
   minAmount: number;
   /** @nullable */
   maxAmount?: number | null;
@@ -170,6 +172,8 @@ export interface DepositPlan {
 
 export interface CreatePlanBody {
   name: string;
+  /** @nullable */
+  fixedAmount?: number | null;
   minAmount: number;
   /** @nullable */
   maxAmount?: number | null;

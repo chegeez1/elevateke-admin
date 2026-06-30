@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import { useRegister } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,6 +14,7 @@ export default function Register() {
   const [password, setPassword] = useState("");
   const [referralCode, setReferralCode] = useState("");
   const [registered, setRegistered] = useState(false);
+  const [, setLocation] = useLocation();
 
   const registerMut = useRegister();
 
@@ -40,13 +41,15 @@ export default function Register() {
             <div className="text-5xl">📧</div>
             <h2 className="text-xl font-bold text-gray-800">Check your email</h2>
             <p className="text-gray-500 text-sm leading-relaxed">
-              We sent a verification link to <strong>{email}</strong>.
-              Click the link to activate your account — it expires in 24 hours.
+              We sent a 6-digit verification code to <strong>{email}</strong>. Enter it below to activate your account.
             </p>
+            <Button className="w-full" onClick={() => setLocation(`/verify-email?email=${encodeURIComponent(email)}`)}>
+              Enter verification code
+            </Button>
             <p className="text-xs text-gray-400">
               Didn't get it?{" "}
-              <Link href="/verify-email" className="text-green-600 hover:underline">
-                Resend verification email
+              <Link href={`/verify-email?email=${encodeURIComponent(email)}`} className="text-green-600 hover:underline">
+                Resend code
               </Link>
             </p>
           </CardContent>

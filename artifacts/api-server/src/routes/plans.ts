@@ -7,10 +7,14 @@ const router: IRouter = Router();
 function formatPlan(plan: typeof depositPlansTable.$inferSelect) {
   const dailyRate = Number(plan.dailyRate);
   const minAmount = Number(plan.minAmount);
+  const fixedAmount = plan.fixedAmount ? Number(plan.fixedAmount) : null;
+  const effectiveAmount = fixedAmount ?? minAmount;
   return {
-    id: plan.id, name: plan.name, minAmount,
+    id: plan.id, name: plan.name,
+    fixedAmount,
+    minAmount,
     maxAmount: plan.maxAmount ? Number(plan.maxAmount) : null,
-    dailyRate, dailyEarning: minAmount * dailyRate,
+    dailyRate, dailyEarning: effectiveAmount * dailyRate,
     durationDays: plan.durationDays, bonusPercent: Number(plan.bonusPercent),
     isActive: plan.isActive, description: plan.description ?? null,
     createdAt: plan.createdAt.toISOString(),

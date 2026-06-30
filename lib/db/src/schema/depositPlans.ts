@@ -5,6 +5,7 @@ import { z } from "zod/v4";
 export const depositPlansTable = pgTable("deposit_plans", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
+  fixedAmount: numeric("fixed_amount", { precision: 15, scale: 2 }),
   minAmount: numeric("min_amount", { precision: 15, scale: 2 }).notNull(),
   maxAmount: numeric("max_amount", { precision: 15, scale: 2 }),
   dailyRate: numeric("daily_rate", { precision: 5, scale: 4 }).notNull(),

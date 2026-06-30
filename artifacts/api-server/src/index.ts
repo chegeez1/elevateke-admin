@@ -3,6 +3,7 @@ import { logger } from "./lib/logger";
 import { initTradeSettings } from "./routes/trade";
 import { expireStalePendingDeposits } from "./routes/deposits";
 import { sendDepositReminders } from "./jobs/depositReminder";
+import { initPlatformSettings } from "./lib/initPlatformSettings";
 
 const rawPort = process.env["PORT"];
 
@@ -19,6 +20,7 @@ if (Number.isNaN(port) || port <= 0) {
 }
 
 initTradeSettings().catch((e) => logger.warn({ err: e }, "Failed to load trade settings from DB"));
+initPlatformSettings().catch((e) => logger.warn({ err: e }, "Failed to seed platform settings"));
 
 const CLEANUP_INTERVAL_MS = 10 * 60 * 1000; // every 10 minutes
 const runDepositCleanup = () => {
