@@ -250,22 +250,25 @@ router.post(
     const durationDays = plan?.durationDays ?? 30;
     const endsAt = new Date(startsAt.getTime() + durationDays * 86400000);
 
-    const [updated] = await db
+    // Atomic transition: only succeeds if deposit is STILL pending (prevents double-credit on concurrent requests)
+    const activated = await db
       .update(depositsTable)
       .set({ status: "active", startsAt, endsAt })
-      .where(eq(depositsTable.id, deposit.id))
+      .where(and(eq(depositsTable.id, deposit.id), eq(depositsTable.status, "pending")))
       .returning();
+
+    if (activated.length === 0) {
+      // Another request already activated this deposit — return the current state idempotently
+      const [latest] = await db.select().from(depositsTable).where(eq(depositsTable.id, deposit.id));
+      res.json(formatDeposit(latest ?? deposit, plan?.name ?? "Unknown"));
+      return;
+    }
+
+    const updated = activated[0];
 
     // Credit bonus amount to user balance
     const depositAmount = Number(deposit.amount);
     const bonusAmt = Number(deposit.bonusAmount);
-
-    await db
-      .update(usersTable)
-      .set({
-        balance: db.$with("u").select(usersTable.balance).from(usersTable).where(eq(usersTable.id, userId)) as unknown as string,
-      })
-      .where(eq(usersTable.id, userId));
 
     // Update user totalDeposited and recalc VIP
     const [userBefore] = await db.select().from(usersTable).where(eq(usersTable.id, userId));
