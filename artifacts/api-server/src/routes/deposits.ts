@@ -83,7 +83,7 @@ router.post("/deposits", authenticate, async (req, res): Promise<void> => {
     return;
   }
 
-  const { planId, phone } = parsed.data;
+  const { planId } = parsed.data;
   const autoRenew = parsed.data.autoRenew ?? false;
 
   const [plan] = await db.select().from(depositPlansTable).where(eq(depositPlansTable.id, planId));
@@ -118,12 +118,14 @@ router.post("/deposits", authenticate, async (req, res): Promise<void> => {
     }
   }
 
-  // Fetch user to get real email for Paystack
+  // Fetch user to get real email and registered phone for Paystack
   const [user] = await db.select().from(usersTable).where(eq(usersTable.id, userId));
   if (!user) {
     res.status(404).json({ error: "User not found" });
     return;
   }
+  // Always use the user's registered phone — not a user-submitted value
+  const phone = user.mpesaPhone || user.phone;
 
   const bonusAmount = (amount * Number(plan.bonusPercent)) / 100;
   const dailyEarning = amount * Number(plan.dailyRate);

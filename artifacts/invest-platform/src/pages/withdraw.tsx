@@ -9,7 +9,7 @@ import { formatNumber } from "@/lib/utils";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
-import { ArrowDownToLine, Clock, CheckCircle2, XCircle } from "lucide-react";
+import { ArrowDownToLine, Clock, CheckCircle2, XCircle, Lock } from "lucide-react";
 
 export default function Withdraw() {
   const { data: user } = useGetMe();
@@ -18,7 +18,6 @@ export default function Withdraw() {
   const queryClient = useQueryClient();
 
   const [amount, setAmount] = useState("");
-  const [phone, setPhone] = useState(user?.mpesaPhone || user?.phone || "");
   const [pin, setPin] = useState("");
 
   const handleWithdraw = (e: React.FormEvent) => {
@@ -27,8 +26,8 @@ export default function Withdraw() {
       toast.error("Minimum withdrawal is KSH 1,300");
       return;
     }
-    
-    withdrawMut.mutate({ data: { amount: Number(amount), phone, pin } }, {
+    // Phone is not sent — backend uses the user's registered phone from DB
+    withdrawMut.mutate({ data: { amount: Number(amount), pin } }, {
       onSuccess: () => {
         toast.success("Withdrawal requested successfully!");
         setAmount("");
@@ -74,12 +73,22 @@ export default function Withdraw() {
               <form onSubmit={handleWithdraw} className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="amount">Amount (KSH)</Label>
-                  <Input id="amount" type="number" min="100" value={amount} onChange={e => setAmount(e.target.value)} required />
+                  <Input id="amount" type="number" min="1300" value={amount} onChange={e => setAmount(e.target.value)} required />
                 </div>
+
                 <div className="space-y-2">
-                  <Label htmlFor="phone">M-Pesa Phone Number</Label>
-                  <Input id="phone" type="tel" value={phone} onChange={e => setPhone(e.target.value)} required />
+                  <Label>M-Pesa Phone Number</Label>
+                  <div className="flex items-center gap-2 bg-gray-50 border rounded-md px-3 py-2">
+                    <span className="flex-1 text-sm font-medium">{user?.phone ?? "—"}</span>
+                    <span className="text-xs text-gray-400 flex items-center gap-1">
+                      <Lock size={11} /> Registered number
+                    </span>
+                  </div>
+                  <p className="text-xs text-gray-400">
+                    Payment will be sent to your registered number. To change it, contact admin.
+                  </p>
                 </div>
+
                 <div className="space-y-2">
                   <Label htmlFor="pin">Withdrawal PIN</Label>
                   <Input id="pin" type="password" inputMode="numeric" value={pin} onChange={e => setPin(e.target.value)} placeholder="Enter your PIN (or password if no PIN set)" required />

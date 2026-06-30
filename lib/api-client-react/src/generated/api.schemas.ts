@@ -208,7 +208,7 @@ export interface CreateDepositBody {
   planId: number;
   amount: number;
   autoRenew?: boolean;
-  phone: string;
+  phone?: string;
 }
 
 export interface DepositWithPaystack {
@@ -270,7 +270,7 @@ export interface Withdrawal {
 
 export interface CreateWithdrawalBody {
   amount: number;
-  phone: string;
+  phone?: string;
   pin: string;
 }
 

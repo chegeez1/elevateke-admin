@@ -5,6 +5,7 @@ import {
   useCreateDeposit,
   useVerifyDeposit,
   useGetDeposits,
+  useGetMe,
   customFetch,
   type ErrorType,
 } from "@workspace/api-client-react";
@@ -134,6 +135,7 @@ function CurrentPlanCard({ deposit }: { deposit: DepositItem }) {
 
 export default function Deposit() {
   const queryClient = useQueryClient();
+  const { data: me } = useGetMe();
   const { data: plans, isLoading: loadingPlans } = useGetPlans();
   const { data: deposits, isLoading: loadingDeposits } = useGetDeposits();
   const createDepositMut = useCreateDeposit();
@@ -141,7 +143,7 @@ export default function Deposit() {
 
   const [selectedPlan, setSelectedPlan] = useState<number | null>(null);
   const [amount, setAmount] = useState("");
-  const [phone, setPhone] = useState("");
+
   const [paymentStep, setPaymentStep] = useState<"form" | "paystack" | "success">("form");
   const [currentDepositRef, setCurrentDepositRef] = useState<string | null>(null);
   const [currentDepositId, setCurrentDepositId] = useState<number | null>(null);
@@ -204,10 +206,8 @@ export default function Deposit() {
     if (!selectedPlan) { toast.error("Please select a plan."); return; }
     const depositAmount = isFixedAmount ? selectedPlanData!.fixedAmount! : Number(amount);
     if (!depositAmount || depositAmount <= 0) { toast.error("Enter a valid amount."); return; }
-    if (!phone.trim()) { toast.error("Enter your M-Pesa phone number."); return; }
-
     createDepositMut.mutate(
-      { data: { planId: selectedPlan, amount: depositAmount, phone } },
+      { data: { planId: selectedPlan, amount: depositAmount } },
       {
         onSuccess: (res: any) => {
           setCurrentDepositRef(res.reference ?? res.paystackRef);
@@ -432,13 +432,12 @@ export default function Deposit() {
                     </div>
                   )}
                   <div className="space-y-2">
-                    <Label htmlFor="phone">M-Pesa Phone Number</Label>
-                    <Input
-                      id="phone" type="tel"
-                      value={phone}
-                      onChange={(e) => setPhone(e.target.value)}
-                      required placeholder="e.g. 0712345678"
-                    />
+                    <Label>M-Pesa Phone Number</Label>
+                    <div className="flex items-center gap-2 bg-gray-50 border rounded-md px-3 py-2">
+                      <span className="flex-1 text-sm font-medium">{me?.phone ?? "—"}</span>
+                      <span className="text-xs text-gray-400 flex items-center gap-1"><Lock size={11} /> Registered number</span>
+                    </div>
+                    <p className="text-xs text-gray-400">To change this number, contact admin.</p>
                   </div>
                   <Button type="submit" className="w-full" disabled={createDepositMut.isPending}>
                     {createDepositMut.isPending ? "Processing…" : "Send STK Push"}

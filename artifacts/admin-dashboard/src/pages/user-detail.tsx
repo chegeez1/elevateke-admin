@@ -9,7 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
   ArrowLeft, Ban, CheckCircle, Wallet, AlertTriangle, TrendingUp, X, Clock, Bell,
-  ShieldCheck, ShieldX, Send,
+  ShieldCheck, ShieldX, Send, Smartphone,
 } from "lucide-react";
 import {
   Dialog,
@@ -50,6 +50,8 @@ export default function UserDetail() {
   const [balanceNote, setBalanceNote] = useState("");
   const [isAdjustOpen, setIsAdjustOpen] = useState(false);
   const [cancelDeposit, setCancelDeposit] = useState<UserDeposit | null>(null);
+  const [isPhoneOpen, setIsPhoneOpen] = useState(false);
+  const [newPhone, setNewPhone] = useState("");
 
   const { data: detail, isLoading } = useQuery({
     queryKey: ["admin-user", id],
@@ -133,6 +135,26 @@ export default function UserDetail() {
   const pendingDeposits = deposits.filter(d => d.status === "pending");
   const activeDeposits  = deposits.filter(d => d.status === "active");
 
+  const updatePhone = useMutation({
+    mutationFn: (phone: string) =>
+      customFetch(`/api/admin/users/${id}/phone`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phone }),
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin-user", id] });
+      queryClient.invalidateQueries({ queryKey: ["admin-users"] });
+      setIsPhoneOpen(false);
+      setNewPhone("");
+      toast({ title: "Phone number updated" });
+    },
+    onError: (err: any) => {
+      toast({ title: "Failed to update phone", description: err.message, variant: "destructive" });
+    },
+  });
+
+
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-4">
@@ -174,6 +196,12 @@ export default function UserDetail() {
           >
             {user.isSuspended ? <CheckCircle className="mr-2 h-4 w-4" /> : <Ban className="mr-2 h-4 w-4" />}
             {user.isSuspended ? "Unsuspend User" : "Suspend User"}
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => { setNewPhone(detail?.user?.phone ?? ""); setIsPhoneOpen(true); }}
+          >
+            <Smartphone className="mr-2 h-4 w-4" />Update Phone
           </Button>
         </div>
       </div>
@@ -356,6 +384,42 @@ export default function UserDetail() {
           </CardContent>
         </Card>
       </div>
+
+
+      {/* Update Phone Dialog */}
+      <Dialog open={isPhoneOpen} onOpenChange={setIsPhoneOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Smartphone className="h-5 w-5 text-blue-500" /> Update Phone Number
+            </DialogTitle>
+            <DialogDescription>
+              Change the M-Pesa number used for this user's deposits and withdrawals.
+              The user will use this number going forward.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">New Phone Number</label>
+              <Input
+                type="tel"
+                placeholder="e.g. 0712345678"
+                value={newPhone}
+                onChange={(e) => setNewPhone(e.target.value)}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsPhoneOpen(false)}>Cancel</Button>
+            <Button
+              onClick={() => updatePhone.mutate(newPhone)}
+              disabled={!newPhone.trim() || updatePhone.isPending}
+            >
+              {updatePhone.isPending ? "Updating…" : "Update Phone"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Cancel deposit confirm dialog */}
       <Dialog open={!!cancelDeposit} onOpenChange={open => !open && setCancelDeposit(null)}>

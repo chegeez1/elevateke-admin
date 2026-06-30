@@ -295,7 +295,7 @@ export const CreateDepositBody = zod.object({
   planId: zod.number(),
   amount: zod.number(),
   autoRenew: zod.boolean().optional(),
-  phone: zod.string(),
+  phone: zod.string().optional(),
 });
 
 /**
@@ -407,7 +407,7 @@ export const GetWithdrawalsResponse = zod.array(GetWithdrawalsResponseItem);
  */
 export const CreateWithdrawalBody = zod.object({
   amount: zod.number(),
-  phone: zod.string(),
+  phone: zod.string().optional(),
   pin: zod.string(),
 });
 

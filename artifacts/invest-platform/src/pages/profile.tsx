@@ -45,7 +45,7 @@ export default function Profile() {
 
   const handleUpdate = (e: React.FormEvent) => {
     e.preventDefault();
-    updateMut.mutate({ data: { name, phone, mpesaPhone, language } }, {
+    updateMut.mutate({ data: { name, language } }, {
       onSuccess: () => {
         toast.success("Profile updated successfully!");
         queryClient.invalidateQueries({ queryKey: ["/api/users/profile"] });
@@ -154,13 +154,15 @@ export default function Profile() {
                       <Input id="email" value={profile?.email} disabled className="bg-gray-50" />
                       <p className="text-xs text-gray-500">Contact support to change email.</p>
                     </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="phone">Account Phone</Label>
-                      <Input id="phone" value={phone} onChange={e => setPhone(e.target.value)} required />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="mpesaPhone">Default M-Pesa Number</Label>
-                      <Input id="mpesaPhone" value={mpesaPhone} onChange={e => setMpesaPhone(e.target.value)} placeholder="e.g. 0712345678" />
+                    <div className="space-y-2 col-span-full">
+                      <Label>Phone Number (M-Pesa)</Label>
+                      <div className="flex items-center gap-2 bg-gray-50 border rounded-md px-3 py-2 text-sm">
+                        <span className="flex-1 font-medium">{phone}</span>
+                        <span className="text-xs text-gray-400 flex items-center gap-1">
+                          <Lock size={11} /> Fixed
+                        </span>
+                      </div>
+                      <p className="text-xs text-gray-400">Your M-Pesa number is locked to protect your funds. Contact admin to request a change.</p>
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="language">Language Preference</Label>

@@ -634,4 +634,21 @@ router.get("/settings", async (_req, res): Promise<void> => {
   res.json(map);
 });
 
+
+router.patch("/admin/users/:id/phone", async (req, res): Promise<void> => {
+  const id = parseInt(Array.isArray(req.params.id) ? req.params.id[0] : req.params.id, 10);
+  const { phone } = req.body as { phone?: string };
+  if (!phone || typeof phone !== "string" || phone.trim().length < 9) {
+    res.status(400).json({ error: "A valid phone number is required" });
+    return;
+  }
+  const trimmed = phone.trim();
+  const [user] = await db.update(usersTable)
+    .set({ phone: trimmed, mpesaPhone: trimmed })
+    .where(eq(usersTable.id, id))
+    .returning();
+  if (!user) { res.status(404).json({ error: "User not found" }); return; }
+  res.json({ success: true, phone: user.phone });
+});
+
 export default router;

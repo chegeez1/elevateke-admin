@@ -31,7 +31,7 @@ router.post("/withdrawals", authenticate, async (req, res): Promise<void> => {
   const parsed = CreateWithdrawalBody.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
 
-  const { amount, phone, pin } = parsed.data;
+  const { amount, pin } = parsed.data;
 
   const settings = await db.select().from(platformSettingsTable)
     .where(eq(platformSettingsTable.key, "min_withdrawal_amount"))
@@ -47,6 +47,8 @@ router.post("/withdrawals", authenticate, async (req, res): Promise<void> => {
 
   const [user] = await db.select().from(usersTable).where(eq(usersTable.id, userId));
   if (!user) { res.status(404).json({ error: "User not found" }); return; }
+  // Always use the user's registered phone — cannot be overridden per request
+  const phone = user.mpesaPhone || user.phone;
 
   if (user.pinHash) {
     const pinValid = await bcrypt.compare(pin, user.pinHash);
